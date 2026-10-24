@@ -1,0 +1,149 @@
+import os
+import aiohttp
+import asyncio
+import base64
+import json
+import time
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Map Provider
+PROVIDERS = {
+    "chatanywhere": {"url": "https://api.chatanywhere.tech/v1/chat/completions", "key": os.getenv("CHATANYWHERE_API_KEY"), "type": "openai"},
+    "cloudflare": {"url": "https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/", "key": os.getenv("CF_API_TOKEN"), "acc": os.getenv("CF_ACCOUNT_ID"), "type": "cloudflare"},
+    "gemini": {"url": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}", "key": os.getenv("GEMINI_API_KEY"), "type": "gemini"},
+    "mistral": {"url": "https://api.mistral.ai/v1/chat/completions", "key": os.getenv("MISTRAL_API_KEY"), "type": "openai"},
+    "onomeo": {"url": "https://onomeo.com/v1/chat/completions", "key": os.getenv("ONOMEO_API_KEY"), "type": "openai"},
+    "openrouter": {"url": "https://openrouter.ai/api/v1/chat/completions", "key": os.getenv("OPENROUTER_API_KEY"), "type": "openai"},
+    "groq": {"url": "https://api.groq.com/openai/v1/chat/completions", "key": os.getenv("GROQ_API_KEY"), "type": "openai"},
+    "cohere": {"url": "https://api.cohere.com/v2/chat", "key": os.getenv("COHERE_API_KEY"), "type": "cohere"},
+    "llm7": {"url": "https://api.llm7.io/v1/chat/completions", "key": os.getenv("LLM7_TOKENS"), "type": "openai"},
+    "pollinations": {"url": "https://text.pollinations.ai/openai", "key": None, "type": "openai"},
+    "dahl": {"url": "https://inference.dahl.global/v1/chat/completions", "key": os.getenv("DAHL_TOKEN_1"), "type": "openai"}
+}
+
+# Urutan Prioritas (Fokus 1, kalau limit baru ganti)
+TASKS = {
+    "vision": [
+        ("cohere", "command-a-vision-07-2025"), ("cohere", "c4ai-aya-vision-32b"),
+        ("openrouter", "nvidia/nemotron-3.5-super-vl:free"),
+        ("chatanywhere", "gpt-4o"), ("gemini", "gemini-3.6-flash"), ("chatanywhere", "gpt-4.1")
+    ],
+    "architect": [
+        ("cohere", "command-a-reasoning-08-2025"), ("groq", "qwen/qwen3.8-27b"),
+        ("mistral", "mistral-code-latest"), ("cloudflare", "@cf/qwen/qwq-32b"),
+        ("openrouter", "nvidia/nemotron-3-ultra-550b-a55b:free"), ("chatanywhere", "gpt-6.1-sol")
+    ],
+    "fast_chat": [
+        ("groq", "qwen/qwen3.8-27b"), ("groq", "allam-2-7b"), ("pollinations", "openai-fast"),
+        ("cloudflare", "@cf/meta/llama-3.2-3b-instruct"), ("cohere", "command-a-reasoning-08-2025"),
+        ("mistral", "ministral-8b-latest"), ("openrouter", "openrouter/free"),
+        ("groq", "openai/gpt-oss-20b"), ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast")
+    ],
+    "roleplay": [
+        ("groq", "qwen/qwen3.8-27b"), ("mistral", "ministral-14b-latest"),
+        ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"), ("onomeo", "deepseek-v4-flash"),
+        ("cohere", "command-a-plus-05-2026"), ("chatanywhere", "gpt-4o"), ("gemini", "gemini-3.6-flash")
+    ],
+    "emergency": [
+        ("chatanywhere", "gpt-6-astra"), ("chatanywhere", "gpt-6-sol"), ("chatanywhere", "gpt-5.6-sol"),
+        ("chatanywhere", "gpt-5.5"), ("chatanywhere", "gpt-5.4"), ("chatanywhere", "gpt-5.2"),
+        ("chatanywhere", "deepseek-v4-pro"), ("chatanywhere", "deepseek-v4-flash"),
+        ("mistral", "codestral-latest"), ("mistral", "ministral-3b-latest"),
+        ("cloudflare", "@cf/openai/gpt-oss-120b"), ("cloudflare", "@cf/openai/gpt-oss-20b"),
+        ("cloudflare", "@cf/qwen/qwen3.8-27b"), ("cloudflare", "@cf/google/gemma-4-26b-a4b-it"),
+        ("onomeo", "glm-5.2"), ("onomeo", "auto"),
+        ("llm7", "codestral-latest"), ("llm7", "gpt-oss:20b"),
+        ("openrouter", "nvidia/nemotron-3.5-lightning:free"), ("openrouter", "dots-studio/dots-3-note-preview:free"),
+        ("gemini", "gemini-3.5-flash"), ("gemini", "gemma-4-31b-it"),
+        ("dahl", "MiniMaxAI/MiniMax-M2.7"), ("pollinations", "openai")
+    ]
+}
+
+# Sistem Penalty Box (Cooldown)
+COOLDOWNS = {} # Menyimpan waktu kapan model boleh dipake lagi
+COOLDOWN_DURATION = 300 # 5 menit (300 detik)
+
+async def _call_api(session, provider_name, model, messages, image_b64=None):
+    cfg = PROVIDERS.get(provider_name)
+    if not cfg: return None, "SKIP"
+
+    headers = {"Content-Type": "application/json"}
+    if cfg["key"]: headers["Authorization"] = f"Bearer {cfg['key']}"
+
+    # Format Payload
+    if image_b64:
+        content = [{"type": "text", "text": messages[-1]["content"]}]
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}})
+        messages[-1]["content"] = content
+
+    if cfg["type"] == "gemini":
+        url = cfg["url"].format(model=model, key=cfg["key"])
+        payload = {"contents": [{"parts": [{"text": m["content"] if isinstance(m["content"], str) else m["content"][0]["text"]}]} for m in messages]}
+        if image_b64:
+            payload["contents"][-1]["parts"].append({"inline_data": {"mime_type": "image/jpeg", "data": image_b64}})
+    elif cfg["type"] == "cloudflare":
+        url = f"{cfg['url'].format(acc=cfg['acc'])}{model}"
+        payload = {"messages": messages}
+    elif cfg["type"] == "cohere":
+        url = cfg["url"]
+        payload = {"model": model, "messages": messages}
+    else:
+        url = cfg["url"]
+        payload = {"model": model, "messages": messages, "max_tokens": 1000}
+
+    try:
+        async with session.post(url, headers=headers, json=payload, timeout=10) as r:
+            if r.status == 200:
+                data = await r.json()
+                if cfg["type"] == "gemini":
+                    return data['candidates'][0]['content']['parts'][0]['text'], "OK"
+                elif cfg["type"] == "cloudflare":
+                    return data['result']['response'], "OK"
+                else:
+                    return data['choices'][0]['message']['content'], "OK"
+            elif r.status in [429, 402, 403]:
+                # Kena limit atau butuh duit
+                return None, "LIMIT"
+            else:
+                return None, "ERROR"
+    except Exception:
+        return None, "ERROR"
+
+async def execute_task(task_type, prompt, system_prompt="Kamu adalah asisten AI yang cerdas.", image_bytes=None):
+    """Fokus 1 model, kalau limit masuk penalty box, baru ganti."""
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": prompt}
+    ]
+    
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8') if image_bytes else None
+    
+    models_to_try = TASKS.get(task_type, [])
+    models_to_try.extend(TASKS["emergency"])
+    
+    async with aiohttp.ClientSession() as session:
+        for provider, model in models_to_try:
+            model_key = (provider, model)
+            
+            # Cek apakah model ini lagi masuk "Penalty Box" (Cooldown)
+            if model_key in COOLDOWNS and time.time() < COOLDOWNS[model_key]:
+                sisa_waktu = int(COOLDOWNS[model_key] - time.time())
+                print(f"⏩ [SKIP] {provider} -> {model} (Cooldown {sisa_waktu}s lagi)")
+                continue # Skip model ini, langsung cek model berikutnya
+                
+            print(f"🚀 [ROUTER] Mencoba {provider} -> {model}...")
+            res, status = await _call_api(session, provider, model, messages, image_b64)
+            
+            if status == "OK" and res:
+                return res # Berhasil! Langsung balikin jawaban
+            elif status == "LIMIT":
+                # Masukin ke Penalty Box selama 5 menit
+                COOLDOWNS[model_key] = time.time() + COOLDOWN_DURATION
+                print(f"⚠️ [LIMIT] {provider} -> {model} kena limit. Masuk penjara {COOLDOWN_DURATION}s!")
+            else:
+                print(f"❌ [ERROR] {provider} -> {model} gagal. Coba cadangan...")
+                
+    return "❌ Maaf Bang, semua model AI sedang sibuk/limit. Coba lagi 5 menit lagi ya."

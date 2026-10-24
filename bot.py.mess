@@ -1,0 +1,428 @@
+import discord
+from discord.ext import commands
+import os
+import json
+from dotenv import load_dotenv
+from ai_engine import execute_task, agent_action, run_agent, check_rate_limit, delete_chat_history, get_bot_stats, execute_tool, search_internet, get_weather, get_dictionary, get_news, get_currency, get_ip_info, summarize_url, research_web, decide_action
+from keep_alive import keep_alive
+
+load_dotenv()
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+
+import asyncio
+
+
+bot = commands.Bot(command_prefix="\x00", intents=intents) # Matikan prefix !
+
+# === FITUR UI: DYNAMIC CHANNEL BUILDER ===
+class ChannelBuilderModal(discord.ui.Modal, title="Buat Channel Baru"):
+    def __init__(self, category):
+        super().__init__()
+        self.category = category
+        self.channel_name = discord.ui.TextInput(
+            label="Nama Channel",
+            placeholder="Contoh: info-promo (tanpa #)",
+            max_length=100,
+            required=True
+        )
+        self.add_item(self.channel_name)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            name = self.channel_name.value.lower().replace(" ", "-").replace("#", "")
+            await interaction.guild.create_text_channel(name=name, category=self.category)
+            await interaction.followup.send(f"✅ **Berhasil!** Channel <#{discord.utils.get(interaction.guild.text_channels, name=name).id}> telah dibuat di kategori **{self.category.name if self.category else 'Tanpa Kategori'}**.", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Gagal membuat channel: {e}", ephemeral=True)
+
+class CategorySelectMenu(discord.ui.Select):
+    def __init__(self, categories):
+        options = [discord.SelectOption(label="Tanpa Kategori", value="none", emoji="📁")]
+        for cat in categories:
+            options.append(discord.SelectOption(label=cat.name, value=str(cat.id), emoji="📂"))
+            
+        super().__init__(placeholder="Pilih Kategori Channel...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "none":
+            cat = None
+        else:
+            cat = discord.utils.get(interaction.guild.categories, id=int(self.values[0]))
+            
+        # Munculin Modal setelah user pilih kategori
+        await interaction.response.send_modal(ChannelBuilderModal(category=cat))
+
+class ChannelBuilderView(discord.ui.View):
+    def __init__(self, categories):
+        super().__init__(timeout=120)
+        self.add_item(CategorySelectMenu(categories))
+
+
+
+async def send_long(target, text, placeholder=None):
+    """Kirim pesan panjang, pecah per 1800 char tapi TIDAK motong code block."""
+    import asyncio
+    MAX = 1800
+    text = (text or "").strip()
+    if not text:
+        return
+    if len(text) <= MAX:
+        if placeholder:
+            try: await placeholder.edit(content=text)
+            except: await target.channel.send(text)
+        else:
+            try: await target.reply(text)
+            except: await target.channel.send(text)
+        return
+
+    lines = text.split(chr(10))
+    chunks = []
+    buf = ""
+    in_code = False
+    
+    for line in lines:
+        if line.strip().startswith("```"):
+            in_code = not in_code
+        
+        if len(buf) + len(line) + 1 > MAX:
+            if buf:
+                if in_code:
+                    buf += chr(10) + "```"
+                chunks.append(buf)
+                buf = ""
+                if in_code:
+                    buf = "```" + chr(10) + line
+                else:
+                    buf = line
+            else:
+                buf = line
+        else:
+            buf = buf + chr(10) + line if buf else line
+            
+    if buf:
+        if in_code:
+            buf += chr(10) + "```"
+        chunks.append(buf)
+    
+    if placeholder:
+        try: await placeholder.delete()
+        except: pass
+    
+    for i, chunk in enumerate(chunks):
+        if i == 0 and not placeholder:
+            try: await target.reply(chunk)
+            except: await target.channel.send(chunk)
+        else:
+            await target.channel.send(chunk)
+        await asyncio.sleep(0.4)
+
+
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot {bot.user} udah online!")
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="🤖 127 AI | Memory + Search"))
+
+@bot.event
+async def on_message(message):
+    if message.author.bot: return
+
+    # === RATE LIMIT (hanya untuk mention @bot) ===
+    if bot.user.mentioned_in(message) and not message.mention_everyone:
+        is_owner = message.guild and message.author.id == message.guild.owner_id
+        if not is_owner:
+            allowed, reason, wait = check_rate_limit(message.author.id)
+            if not allowed:
+                if reason == "per_hour":
+                    reply = "⏱️ Sabar Bang, quota lu abis buat sejam ini. Coba lagi nanti ya."
+                else:
+                    reply = f"⏱️ Pelan-pelan Bang, tunggu {wait} detik lagi."
+                try:
+                    await message.reply(reply)
+                except:
+                    pass
+                return
+
+
+    # --- FITUR MENTION (SEARCH + AGENT + CHAT + MEMORY) ---
+    if bot.user.mentioned_in(message) and not message.mention_everyone:
+        prompt = message.content.replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '').strip()
+
+        if prompt:
+                p_lower = prompt.lower()
+
+                # --- HANDLER NATURAL LANGUAGE: HELP ---
+                if p_lower in ["help", "bantuan", "menu", "fitur", "bisa apa aja"]:
+                    embed = discord.Embed(
+                        title="🤖 BOT-FortxxV2 — Menu Bantuan",
+                        description="Bot ini pakai **Natural Language Agentic AI**. Cukup mention @bot dan ngomong aja!",
+                        color=discord.Color.blurple()
+                    )
+                    embed.add_field(name="💬 Ngobrol Biasa", value="`@bot halo, lagi apa?`\n`@bot jelasin apa itu quantum computing`", inline=False)
+                    embed.add_field(name="🔍 Cari & Riset", value="`@bot cari berita AI terbaru`\n`@bot rangkum https://example.com`", inline=False)
+                    embed.add_field(name="🛠️ Utilitas", value="`@bot cuaca jakarta`\n`@bot usd ke idr`\n`@bot 8.8.8.8 itu IP apa`", inline=False)
+                    embed.add_field(name="⚙️ Kelola Server (Multi-step)", value="`@bot bikin channel #test terus kirim 'halo' ke situ`\n`@bot bikin role VIP`\n`@bot buatkan server (upload gambar)`", inline=False)
+                    embed.add_field(name="🧹 Admin", value="`@bot reset` — Hapus memori chat\n`@bot stats` — Lihat statistik bot", inline=False)
+                    embed.set_footer(text="Limit: 10 pesan/menit, 100 pesan/jam per user.")
+                    await message.reply(embed=embed)
+                    return
+                    
+                # --- HANDLER NATURAL LANGUAGE: RESET ---
+                elif p_lower in ["reset", "hapus memori", "clear", "lupakan semuanya"]:
+                    if not message.author.guild_permissions.manage_messages and message.author.id != message.guild.owner_id:
+                        await message.reply("❌ Command ini cuma buat admin yang punya izin *Manage Messages*.")
+                        return
+                    delete_chat_history(message.channel.id)
+                    await message.reply("🧹 **Memori obrolan di channel ini udah dihapus.** Bot bakal nganggep ini obrolan baru.")
+                    return
+                    
+                # --- HANDLER NATURAL LANGUAGE: STATS ---
+                elif p_lower in ["stats", "statistik", "penggunaan"]:
+                    if message.author.id != message.guild.owner_id and not message.author.guild_permissions.administrator:
+                        await message.reply("❌ Command ini cuma buat Admin/Owner server.")
+                        return
+                    data = get_bot_stats()
+                    if not data:
+                        await message.reply("❌ Gagal ambil statistik dari database.")
+                        return
+                    embed = discord.Embed(title="📊 Statistik Bot", color=discord.Color.green())
+                    embed.add_field(name="Total Interaksi", value=f"{data['total_chat']} pesan", inline=True)
+                    embed.add_field(name="Total Channel Aktif", value=f"{data['total_channels']} channel", inline=True)
+                    embed.add_field(name="Total Request (API)", value=f"{data['total_requests']} request", inline=True)
+                    if data['top_channels']:
+                        top_str = ""
+                        for i, (ch_id, cnt) in enumerate(data['top_channels'], 1):
+                            top_str += f"{i}. <#{ch_id}> — {cnt} pesan\n"
+                        embed.add_field(name="Channel Teraktif", value=top_str, inline=False)
+                    await message.reply(embed=embed)
+                    return
+
+                # --- DYNAMIC CHANNEL BUILDER (UI) ---
+                elif p_lower in ["buatkan channel", "bikin channel", "tambah channel", "create channel", "buat channel"]:
+                    if not message.guild:
+                        await message.reply("❌ Fitur ini cuma bisa dipakai di dalam server.")
+                        return
+                    
+                    categories = message.guild.categories
+                    if not categories:
+                        embed = discord.Embed(title="📂 Tidak Ada Kategori", description="Server ini belum punya kategori. Channel akan dibuat tanpa kategori.", color=discord.Color.yellow())
+                        view = ChannelBuilderView(categories=[])
+                    else:
+                        embed = discord.Embed(title="📂 Pilih Kategori", description="Silakan pilih kategori untuk channel baru dari menu di bawah ini.", color=discord.Color.blue())
+                        view = ChannelBuilderView(categories=categories)
+                    
+                    await message.reply(embed=embed, view=view)
+                    return
+
+                # --- CURRENCY CONVERTER (Direct) ---
+                import re as _re
+                cur_pair = _re.search(r'(usd|eur|gbp|jpy|sgd|myr|aud|idr)\s*(?:ke|to|jadi|->)\s*(usd|eur|gbp|jpy|sgd|myr|aud|idr)', prompt.lower())
+                if cur_pair:
+                    from_cur = cur_pair.group(1).upper()
+                    to_cur = cur_pair.group(2).upper()
+                    async with message.channel.typing():
+                        res = await get_currency(from_cur, to_cur)
+                        await message.reply(res)
+                    return
+
+                try:
+                    # 1. Minta AI Router mutusin aksi
+                    action_data = await decide_action(prompt) or {}
+                    action_type = action_data.get("action", "chat")
+                    print(f"🧠 [ROUTER] Action: {action_type}")
+
+                    if action_type == "search":
+                        query = action_data.get("query", prompt)
+                        msg = await message.reply(f"🔍 **Mencari: {query}...**")
+                        res = await research_web(query, channel_id=message.channel.id)
+                        await msg.edit(content=res)
+                        return
+
+                    elif action_type == "scrape":
+                        url = action_data.get("url")
+                        msg = await message.reply(f"📄 **Membuka & merangkum:** {url}")
+                        res = await summarize_url(url, channel_id=message.channel.id)
+                        await msg.edit(content=res)
+                        return
+
+                    elif action_type == "weather":
+                        city = action_data.get("city", "")
+                        async with message.channel.typing():
+                            res = await get_weather(city)
+                        await send_long(message, res)
+                        return
+
+                    elif action_type == "dictionary":
+                        word = action_data.get("word", prompt)
+                        async with message.channel.typing():
+                            res = await get_dictionary(word)
+                        await send_long(message, res)
+                        return
+
+                    elif action_type == "news":
+                        query = action_data.get("query", "teknologi")
+                        async with message.channel.typing():
+                            res = await get_news(query)
+                        await send_long(message, res)
+                        return
+
+                    elif action_type == "ip_info":
+                        ip = action_data.get("ip", "")
+                        async with message.channel.typing():
+                            res = await get_ip_info(ip)
+                        await send_long(message, res)
+                        return
+
+                    elif action_type == "discord_action":
+                        if not message.guild:
+                            await message.reply("❌ Command ini cuma bisa di server, bukan DM.")
+                            return
+                        async with message.channel.typing():
+                            action_res = await agent_action(message.guild, prompt, message.channel.id)
+                        if action_res:
+                            await send_long(message, action_res)
+                        else:
+                            await message.reply("❌ Gagal eksekusi. Contoh: `bikin channel #test`")
+                        return
+
+                    elif action_type == "multi_step":
+                        async with message.channel.typing():
+                            agent_res = await run_agent(prompt, message.guild, channel_id=message.channel.id)
+                        if agent_res:
+                            await send_long(message, agent_res)
+                        else:
+                            from ai_engine import NATURAL_SYSTEM
+                            resp = await execute_task("fast_chat", prompt, NATURAL_SYSTEM, channel_id=message.channel.id)
+                            await send_long(message, resp)
+                        return
+
+                    else: # chat
+                        async with message.channel.typing():
+                            # Cek dulu: apakah ini perintah aksi server?
+                            action_kws = ["bikin", "buat", "tambah", "create", "hapus", "delete"]
+                            server_kws = ["channel", "kanal", "role", "peran", "kategori", "category"]
+                            is_action = any(a in prompt.lower() for a in action_kws) and any(s in prompt.lower() for s in server_kws)
+
+                            if is_action:
+                                action_res = await agent_action(message.guild, prompt, message.channel.id)
+                                if action_res:
+                                    await send_long(message, action_res)
+                                    return
+
+                            # HARDCODE FALLBACK: Paksa Search Lokal (Serper) untuk info real-time
+                            realtime_kws = ["cuaca", "berita", "harga", "jadwal", "bmkg", "saham", "kripto", "bitcoin"]
+                            if any(kw in prompt.lower() for kw in realtime_kws):
+                                msg = await message.reply("🔍 **Mencari info terbaru di internet (Lokal)...**")
+                                ok, search_results = await execute_tool("search_web", message.guild, query=prompt)
+                                if ok and search_results:
+                                    sys_prompt = "Kamu adalah asisten AI. Rangkum hasil pencarian berikut dengan bahasa Indonesia yang santai dan padat. Jangan ngarang informasi di luar hasil pencarian."
+                                    final_res = await execute_task("fast_chat", f"Hasil Pencarian Web:\n{search_results}\n\nPertanyaan User: {prompt}", sys_prompt, channel_id=message.channel.id)
+                                    await msg.edit(content=final_res)
+                                else:
+                                    res = await research_web(prompt, channel_id=message.channel.id)
+                                    await msg.edit(content=res)
+                                return
+
+                            # Bukan aksi & bukan real-time -> chat natural
+                            from ai_engine import NATURAL_SYSTEM
+                            response = await execute_task("fast_chat", prompt, NATURAL_SYSTEM, channel_id=message.channel.id)
+                            await send_long(message, response)
+                        return
+            except Exception as e:
+                print(f"❌ [MENTION] Error: {e}")
+                # Klasifikasi error, jangan bocorin detail internal ke user
+                err_str = str(e).lower()
+                if "429" in err_str or "rate limit" in err_str:
+                    msg = "⏱️ Semua AI lagi sibuk nih, coba lagi 1-2 menit ya."
+                elif "timeout" in err_str or "timed out" in err_str:
+                    msg = "⏱️ AI-nya lama bales, coba lagi bentar."
+                elif "connection" in err_str or "network" in err_str:
+                    msg = "🌐 Koneksi ke AI lagi bermasalah, coba lagi nanti."
+                else:
+                    msg = "❌ Ada error internal. Admin udah dicatat, coba lagi nanti."
+                await message.reply(msg)
+                return
+
+    # --- FITUR VISION-TO-SERVER ---
+    elif message.attachments and "buatkan server" in message.content.lower():
+        await message.reply("🧠 **AI Vision sedang membaca screenshot...**")
+        attachment = message.attachments[0]
+        if not attachment.content_type.startswith("image/"):
+            return await message.reply("❌ File harus gambar.")
+        image_bytes = await attachment.read()
+        
+        prompt = """
+        Analyze this Discord server screenshot. Extract all categories, channels, and roles.
+        Output ONLY JSON: {"categories": [{"name": "CATEGORY", "channels": [{"name": "channel-name", "type": "text"}]}], "roles": ["Role1"]}
+        """
+        result = await execute_task("vision", prompt, "You are a strict JSON generator.", image_bytes, channel_id=message.channel.id)
+        
+        try:
+            clean_json = result.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
+            
+            embed = discord.Embed(title="🏗️ Rencana Pembangunan Server", color=discord.Color.gold())
+            cat_list = ""
+            for cat in data.get("categories", []):
+                ch_names = ", ".join([f"#{c['name']}" for c in cat.get("channels", [])])
+                cat_list += f"**{cat['name']}**: {ch_names}\n"
+            
+            embed.add_field(name="Kategori & Channel", value=cat_list[:1000] or "Tidak ada", inline=False)
+            embed.add_field(name="Role", value=", ".join(data.get("roles", [])) or "Tidak ada", inline=False)
+            embed.set_footer(text="Ketik 'YA' untuk membangun.")
+            await message.reply(embed=embed)
+            
+            bot.temp_server_data = getattr(bot, 'temp_server_data', {})
+            bot.temp_server_data[message.author.id] = data
+        except Exception as e:
+            await message.reply(f"❌ Gagal parse JSON: {e}\nRespons: {result[:300]}")
+
+    # --- KONFIRMASI VISION SERVER (YA / BATAL) ---
+    elif getattr(bot, 'temp_server_data', {}).get(message.author.id) and message.content.lower() in ["ya", "yes", "y", "bikin", "gas", "batal", "no", "cancel", "gak"]:
+        cmd = message.content.lower()
+        
+        if cmd in ["batal", "no", "cancel", "gak"]:
+            bot.temp_server_data.pop(message.author.id, None)
+            await message.reply("❌ **Dibatalkan.** Rencana pembangunan server udah dihapus.")
+            return
+
+        # Eksekusi (YA)
+        data = bot.temp_server_data.pop(message.author.id)
+        await message.reply("⏳ **Mulai membangun server...** (mohon tunggu)")
+        
+        try:
+            roles_created = 0
+            channels_created = 0
+            
+            for role_name in data.get("roles", []):
+                if not discord.utils.get(message.guild.roles, name=role_name):
+                    await message.guild.create_role(name=role_name)
+                    roles_created += 1
+                    
+            for cat in data.get("categories", []):
+                category = await message.guild.create_category(cat['name'])
+                for ch in cat.get('channels', []):
+                    if ch.get('type') == 'voice': 
+                        await message.guild.create_voice_channel(ch['name'], category=category)
+                    else: 
+                        await message.guild.create_text_channel(ch['name'], category=category)
+                    channels_created += 1
+                    
+            await message.reply(f"✅ **Server berhasil dibangun!**\n📁 {roles_created} Role dibuat\n📺 {channels_created} Channel dibuat.")
+        except Exception as e:
+            await message.reply(f"❌ **Gagal membangun server:** {str(e)[:100]}")
+
+    # await bot.process_commands(message)  <-- Dimatikan karena full agentic @bot
+
+if __name__ == "__main__":
+    keep_alive()
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    if not TOKEN:
+        print("❌ DISCORD_TOKEN tidak ditemukan di .env")
+        exit(1)
+    bot.run(TOKEN)

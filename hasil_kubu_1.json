@@ -1,0 +1,238 @@
+{
+  "kubu": 1,
+  "total": 42,
+  "ok": [
+    {
+      "provider": "cohere",
+      "model": "command-a-translate-08-2025",
+      "elapsed": 2.28,
+      "grade": "BENAR",
+      "answer": "Ambil satu buah dari kotak C (yang berlabel 'Apel+Jeruk').\n\nJika buah yang diambil adalah apel, maka kotak C pasti berisi apel (karena labelnya salah). Kotak A (berlabel 'Apel') pasti berisi jeruk, dan kotak B (berlabel 'Jeruk') pasti berisi campuran apel dan jeruk.\n\nJika buah yang diambil adalah jeruk, maka kotak C pasti berisi jeruk (karena labelnya salah). Kotak A (berlabel 'Apel') pasti berisi campuran apel dan jeruk, dan kotak B (berlabel 'Jeruk') pasti berisi apel.\n\nJAWABAN AKHIR: Ambil satu buah dari kotak C untuk menentukan isi ketiga kotak dengan pasti."
+    },
+    {
+      "provider": "cohere",
+      "model": "command-a-03-2025",
+      "elapsed": 3.03,
+      "grade": "BENAR",
+      "answer": "Ambil satu buah dari kotak C yang berlabel \"Apel+Jeruk\". Karena semua label pasti salah, buah yang diambil tidak mungkin apel dan jeruk sekaligus.\n\nJika buah yang diambil adalah apel, maka kotak C pasti berisi apel. Kotak A tidak mungkin berisi apel karena labelnya salah, jadi kotak A berisi jeruk. Dengan eliminasi, kotak B berisi apel dan jeruk.\n\nJika buah yang diambil adalah jeruk, maka kotak C pasti berisi jeruk. Kotak B tidak mungkin berisi jeruk karena labelnya salah, jadi kotak B berisi apel. Dengan eliminasi, kotak A berisi apel dan jeruk.\n\nJAWABAN AKHIR: Ambil satu buah dari kotak C, jika apel maka C=Apel, A=Jeruk, B=Apel+Jeruk. Jika jeruk maka C=Jeruk, B=Apel, A=Apel+Jeruk."
+    },
+    {
+      "provider": "cohere",
+      "model": "command-r-08-2024",
+      "elapsed": 2.67,
+      "grade": "BENAR",
+      "answer": "1. Ambil satu buah dari kotak A. Jika apel, maka kotak A adalah 'Apel' dan kotak C adalah 'Jeruk'. Jika jeruk, maka kotak A adalah 'Jeruk' dan kotak B adalah 'Apel'.\n\n2. Setelah mengetahui isi kotak A, ambil satu buah dari kotak B. Jika apel, maka kotak B adalah 'Apel+Jeruk' dan kotak C adalah 'Jeruk'. Jika jeruk, maka kotak B adalah 'Jeruk' dan kotak C adalah 'Apel+Jeruk'.\n\nJAWABAN AKHIR: Dengan cara ini, kita dapat menentukan isi ketiga kotak dengan pasti."
+    },
+    {
+      "provider": "cohere",
+      "model": "command-r7b-12-2024",
+      "elapsed": 2.38,
+      "grade": "BENAR",
+      "answer": "Ada beberapa cara untuk menentukan isi ketiga kotak dengan pasti. Berikut adalah salah satunya:\n\n1. Ambil buah dari kotak A.\n2. Ambil buah dari kotak B.\n3. Periksa label kotak C.\n\nJika label kotak C adalah 'Apel', ambil buah dari kotak A. Jika label kotak C adalah 'Jeruk', ambil buah dari kotak B. Jika label kotak C adalah 'Apel+Jeruk', ambil buah dari kotak A dan kotak B.\n\nDengan cara ini, Anda dapat menentukan isi ketiga kotak dengan pasti.\n\nJAWABAN AKHIR: Anda dapat menentukan isi ketiga kotak dengan pasti dengan mengambil buah dari kotak A dan kotak B, dan periksa label kotak C."
+    },
+    {
+      "provider": "cohere",
+      "model": "command-a-vision-07-2025",
+      "elapsed": 8.85,
+      "grade": "BENAR",
+      "answer": "Untuk menentukan isi ketiga kotak dengan pasti, kita bisa menggunakan proses eliminasi dan sedikit trik matematika. Berikut langkah-langkahnya:\n\n1. **Ambil Buah dari Kotak C**: Karena kotak C berlabel \"Apel+Jeruk\", kita tahu bahwa kotak ini pasti berisi apel, jeruk, atau keduanya. Ambil satu buah dari kotak C.\n\n2. **Periksa Buah yang Diambil**: \n   - Jika buah yang diambil adalah apel, maka kotak C berisi apel. Ini berarti kotak A tidak bisa berisi apel (karena labelnya pasti salah), jadi kotak A pasti berisi jeruk. Kotak B juga tidak bisa berisi apel, jadi kotak B pasti berisi jeruk.\n   - Jika buah yang diambil adalah jeruk, maka kotak C berisi jeruk. Ini berarti kotak B tidak bisa berisi jeruk (karena labelnya pasti salah), jadi kotak B pasti berisi apel. Kotak A juga tidak bisa berisi jeruk, jadi kotak A pasti berisi apel.\n\n3. **Konfirmasi dengan Kotak A dan B**: \n   - Jika kotak C berisi apel, ambil satu buah dari kotak A. Jika buah yang diambil adalah jeruk, maka kita telah benar-benar menentukan isi semua kotak.\n   - Jika kotak C berisi jeruk, ambil satu buah dari kotak B. Jika buah yang diambil adalah apel, maka kita telah benar-benar menentukan isi semua kotak.\n\nDengan mengikuti langkah-langkah ini, kita bisa menentukan isi ketiga kotak dengan pasti, meskipun labelnya pasti salah.\n\nJAWABAN AKHIR:\nUntuk menentukan isi ketiga kotak dengan pasti, ambil satu buah dari kotak C. Jika buah yang diambil adalah apel, maka kotak C berisi apel, kotak A berisi jeruk, dan kotak B berisi jeruk. Jika buah yang diambil adalah jeruk, maka kotak C berisi jeruk, kotak A berisi apel, dan kotak B berisi apel. Selanjutnya, ambil satu buah dari kotak A atau B sesuai dengan hasil sebelumnya untuk konfirmasi."
+    },
+    {
+      "provider": "cohere",
+      "model": "c4ai-aya-expanse-32b",
+      "elapsed": 3.98,
+      "grade": "BENAR",
+      "answer": "Berikut langkah-langkahnya:\n\n1. **Ambil buah dari Kotak C (berlabel 'Apel+Jeruk').** Karena semua label salah, kotak C tidak mungkin berisi apel dan jeruk. Jadi, kamu akan mendapatkan entwederr apel atau jeruk.\n\n2. **Berdasarkan hasil buah yang diambil dari Kotak C:**\n\n   * **Jika mendapatkan apel:** Kotak C berisi apel, yang berarti Kotak A tidak berisi apel (karena labelnya salah). Erti nya Kotak A berisi jeruk. Kotak B pun berisi apel (karena hanya tersisa apel).\n   * **Jika mendapatkan jeruk:** Kotak C berisi jeruk, yang berarti Kotak B tidak berisi jeruk. Erti nya Kotak B berisi apel. Dan Kotak A berisi jeruk.\n\n **JAWABAN AKHIR:** Dengan mengambil satu buah dari Kotak C, kamu dapat menentukan isi ketiga kotak dengan pasti."
+    },
+    {
+      "provider": "cohere",
+      "model": "c4ai-aya-vision-32b",
+      "elapsed": 10.47,
+      "grade": "SALAH",
+      "answer": "Berikut adalah langkah-langkah untuk menentukan isi ketiga kotak dengan pasti:\n\n1. **Memahami Situasi**: Kita memiliki tiga kotak, masing-masing diberi label \"Apel\", \"Jeruk\", dan \"Apel+Jeruk\". Namun, semua label ini salah, yang berarti isi kotak tidak sesuai dengan labelnya.\n\n2. **Pengambilan Sampel**: Kita hanya diperbolehkan mengambil satu buah dari salah satu kotak tanpa melihat isinya. Mari kita sebut buah yang diambil sebagai sampel.\n\n3. **Analisis Sampel**: Setelah mengambil sampel, kita perlu menganalisisnya:\n   - Jika sampel adalah apel, maka kotak yang diambil dari situ tidak bisa berisi apel saja (karena labelnya salah), dan juga tidak bisa berisi campuran apel dan jeruk (karena kotak \"Apel+Jeruk\" juga salah). Jadi, kotak tersebut pasti berisi jeruk.\n   - Jika sampel adalah jeruk, maka kotak yang diambil dari situ tidak bisa berisi jeruk saja (karena labelnya salah), dan juga tidak bisa berisi campuran apel dan jeruk (karena kotak \"Apel+Jeruk\" salah). Jadi, kotak tersebut pasti berisi apel.\n   - Jika sampel adalah campuran apel dan jeruk, maka kotak yang diambil dari situ tidak bisa berisi campuran apel dan jeruk (karena labelnya salah). Jadi, kotak tersebut pasti berisi apel atau jeruk, tetapi kita tidak bisa menentukan mana tanpa pengambilan sampel tambahan.\n\n4. **Pengambilan Sampel Kedua (Opsional)**: Jika sampel pertama adalah campuran apel dan jeruk, kita perlu mengambil sampel lagi dari kotak yang sama untuk menentukan apakah isinya apel atau jeruk.\n\n5. **Kesimpulan**: Setelah menganalisis sampel, kita dapat menentukan isi ketiga kotak dengan pasti:\n   - Kotak dengan label \"Apel\" berisi jeruk.\n   - Kotak dengan label \"Jeruk\" berisi apel.\n   - Kotak dengan label \"Apel+Jeruk\" berisi apel atau jeruk, tergantung pada hasil pengambilan sampel kedua (jika diperlukan).\n\nDengan mengikuti langkah-langkah ini, kita dapat mengetahui isi ketiga kotak tanpa melihat ke dalam kotak dan hanya dengan mengambil satu buah sampel."
+    },
+    {
+      "provider": "cohere",
+      "model": "command-r-plus-08-2024",
+      "elapsed": 45.26,
+      "grade": "BENAR",
+      "answer": "Pertama, ambil satu buah dari kotak yang berlabel 'Apel+Jeruk'. Karena semua label pasti salah, maka buah yang diambil pasti bukan apel dan bukan jeruk.\n\nKedua, lihat buah yang diambil tadi. Jika itu adalah buah pir, maka kita bisa menentukan isi ketiga kotak:\n- Kotak A berisi Jeruk (bukan Apel karena labelnya salah).\n- Kotak B berisi Apel (bukan Jeruk karena labelnya salah).\n- Kotak C berisi Pir (karena buah yang diambil dari kotak ini adalah pir).\n\nNamun, jika buah yang diambil tadi adalah buah lain selain pir, misal anggur, maka kita perlu langkah tambahan.\n\nKetiga, ambil satu buah dari kotak yang berlabel 'Apel'. Buah yang diambil ini pasti bukan apel (karena labelnya salah). Jika buah ini adalah jeruk, maka:\n- Kotak A berisi Jeruk (karena buah yang diambil dari kotak ini adalah jeruk).\n- Kotak B berisi Pir (bukan Jeruk karena labelnya salah, dan bukan Apel karena sudah ada di kotak A).\n- Kotak C berisi Apel (bukan Apel+Jeruk karena labelnya salah, dan bukan Pir karena sudah ada di kotak B).\n\nJika buah yang diambil dari kotak 'Apel' adalah pir, maka:\n- Kotak A berisi Pir (karena buah yang diambil dari kotak ini adalah pir).\n- Kotak B berisi Apel (bukan Jeruk karena labelnya salah).\n- Kotak C berisi Jeruk (bukan Apel+Jeruk karena labelnya salah, dan bukan Pir karena sudah ada di kotak A).\n\nJadi, dengan mengambil buah dari kotak 'Apel+Jeruk' dan 'Apel' secara berurutan, kita bisa menentukan isi ketiga kotak dengan pasti, terlepas dari jenis buah yang ada di dalamnya.\n\nJAWABAN AKHIR: Ambil buah dari kotak 'Apel+Jeruk' dan 'Apel' secara berurutan untuk menentukan isi ketiga kotak."
+    }
+  ],
+  "fail": [
+    {
+      "provider": "cohere",
+      "model": "command-a-plus-05-2026",
+      "error": "PARSE_ERR:['id', 'message', 'finish_reason']"
+    },
+    {
+      "provider": "cohere",
+      "model": "command-a-reasoning-08-2025",
+      "error": "PARSE_ERR:['id', 'message', 'finish_reason']"
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-3.6-flash",
+      "error": "HTTP401:{\n  \"error\": {\n    \"code\": 401,\n    \"message\": \"API keys are not supported by this API. Expected OAuth2 access token or "
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "error": "HTTP401:{\n  \"error\": {\n    \"code\": 401,\n    \"message\": \"API keys are not supported by this API. Expected OAuth2 access token or "
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite",
+      "error": "HTTP401:{\n  \"error\": {\n    \"code\": 401,\n    \"message\": \"API keys are not supported by this API. Expected OAuth2 access token or "
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-3-flash-preview",
+      "error": "HTTP401:{\n  \"error\": {\n    \"code\": 401,\n    \"message\": \"API keys are not supported by this API. Expected OAuth2 access token or "
+    },
+    {
+      "provider": "gemini",
+      "model": "gemma-4-31b-it",
+      "error": "HTTP401:{\n  \"error\": {\n    \"code\": 401,\n    \"message\": \"API keys are not supported by this API. Expected OAuth2 access token or "
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-6-sol",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-6-astra",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-6-luna",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.6-sol",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-6.1-sol",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.6-terra",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.6-luna",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.4-mini",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.5",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.4-nano",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.2",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.4",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5-mini",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5.1",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-4o-mini",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-5-nano",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-4o",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-4.1-nano",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-4.1",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-3.5-turbo",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "deepseek-v4-pro",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "deepseek-v4-flash",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "deepseek-v4.1-flash",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "gpt-4.1-mini",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "deepseek-chat",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "chatanywhere",
+      "model": "deepseek-v3.2",
+      "error": "LIMIT(429)"
+    }
+  ],
+  "grades": {
+    "BENAR": 7,
+    "SALAH": 1
+  }
+}

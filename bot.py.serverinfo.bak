@@ -1,0 +1,121 @@
+import discord
+from discord.ext import commands
+import os
+import json
+import asyncio
+from dotenv import load_dotenv
+from ai_engine import execute_task
+from keep_alive import keep_alive
+
+load_dotenv()
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot {bot.user} udah online!")
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="🤖 127 Model AI Active"))
+
+@bot.event
+async def on_message(message):
+    if message.author.bot: return
+
+    # --- FITUR VISION-TO-SERVER ---
+    if message.attachments and "buatkan server" in message.content.lower():
+        await message.reply("🧠 **AI Vision sedang membaca screenshot server...** Mohon tunggu (proses bisa 15-30 detik).")
+        
+        attachment = message.attachments[0]
+        if not attachment.content_type.startswith("image/"):
+            return await message.reply("❌ File harus berupa gambar (JPG/PNG).")
+
+        image_bytes = await attachment.read()
+        
+        prompt = """
+        Analyze this Discord server screenshot. Extract all categories, channels, and roles.
+        Output ONLY a valid JSON object like this:
+        {"categories": [{"name": "CATEGORY", "channels": [{"name": "channel-name", "type": "text"}]}], "roles": ["Role1", "Role2"]}
+        Do not add any explanation.
+        """
+        
+        # Panggil AI (Divisi Vision)
+        result = await execute_task("vision", prompt, "You are a strict JSON generator.", image_bytes)
+        
+        try:
+            # Bersihin format markdown dari AI
+            clean_json = result.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
+            
+            embed = discord.Embed(title="🏗️ Rencana Pembangunan Server", color=discord.Color.gold())
+            cat_list = ""
+            for cat in data.get("categories", []):
+                ch_names = ", ".join([f"#{c['name']}" for c in cat.get("channels", [])])
+                cat_list += f"**{cat['name']}**: {ch_names}\n"
+            
+            embed.add_field(name="Kategori & Channel", value=cat_list[:1000] or "Tidak ada", inline=False)
+            embed.add_field(name="Role", value=", ".join(data.get("roles", [])) or "Tidak ada", inline=False)
+            embed.set_footer(text="Ketik 'YA' untuk membangun, atau 'TIDAK' untuk batal.")
+            
+            await message.reply(embed=embed)
+            
+            # Simpan data di memori bot
+            bot.temp_server_data = getattr(bot, 'temp_server_data', {})
+            bot.temp_server_data[message.author.id] = data
+            
+        except Exception as e:
+            await message.reply(f"❌ Gagal parse JSON dari AI. Error: {e}\n\nRespons AI:\n{result[:500]}")
+
+    # --- KONFIRMASI BANGUN SERVER ---
+    elif message.content.lower() == "ya" and getattr(bot, 'temp_server_data', {}).get(message.author.id):
+        data = bot.temp_server_data.pop(message.author.id)
+        await message.reply("⏳ **Mulai membangun server...**")
+        
+        # 1. Bikin Role
+        for role_name in data.get("roles", []):
+            if not discord.utils.get(message.guild.roles, name=role_name):
+                await message.guild.create_role(name=role_name)
+                
+        # 2. Bikin Kategori & Channel
+        for cat in data.get("categories", []):
+            category = await message.guild.create_category(cat['name'])
+            for ch in cat.get('channels', []):
+                try:
+                    if ch.get('type') == 'voice':
+                        await message.guild.create_voice_channel(ch['name'], category=category)
+                    else:
+                        await message.guild.create_text_channel(ch['name'], category=category)
+                except:
+                    pass
+                    
+        await message.reply("✅ **Server berhasil dibangun sesuai gambar!**")
+
+    # --- COMMAND AI CHAT BIASA ---
+    elif message.content.startswith("!ai "):
+        prompt = message.content[4:]
+        msg = await message.reply("🧠 **AI sedang berpikir...**")
+        
+        # Panggil AI (Divisi Fast Chat / Roleplay)
+        response = await execute_task("fast_chat", prompt)
+        await msg.edit(content=response[:2000])
+
+
+    # --- FITUR MENTION CHAT (Tanya langsung tanpa !ai) ---
+    elif bot.user.mentioned_in(message) and not message.mention_everyone:
+        prompt = message.content.replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '').strip()
+        if prompt:
+            async with message.channel.typing():
+                response = await execute_task("fast_chat", prompt)
+                await message.reply(response[:2000])
+
+    await bot.process_commands(message)
+
+keep_alive()
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+if TOKEN:
+    bot.run(TOKEN)
+else:
+    print("❌ Token Discord gak ketemu di .env!")

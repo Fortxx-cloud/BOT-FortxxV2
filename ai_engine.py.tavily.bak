@@ -1,0 +1,249 @@
+import os
+import aiohttp
+import asyncio
+import base64
+import json
+import time
+import sqlite3
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# === 1. PERMANENT MEMORY (SQLITE) ===
+DB_FILE = "memory.db"
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS chat_history 
+                 (id INTEGER PRIMARY KEY, channel_id TEXT, user_name TEXT, role TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)""")
+    conn.commit()
+    conn.close()
+
+def save_chat(channel_id, user_name, role, content):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("INSERT INTO chat_history (channel_id, user_name, role, content) VALUES (?, ?, ?, ?)", 
+              (str(channel_id), user_name, role, content))
+    conn.commit()
+    conn.close()
+
+def get_chat_history(channel_id, limit=10):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT user_name, role, content FROM chat_history WHERE channel_id = ? ORDER BY id DESC LIMIT ?", 
+              (str(channel_id), limit))
+    rows = c.fetchall()
+    conn.close()
+    return rows[::-1] # Balikin urutannya (dari lama ke baru)
+
+init_db()
+
+# === 2. LIVE SEARCH (EXA AI) ===
+
+# === MULTI-SEARCH FALLBACK (EXA -> SERPER -> LANGSEARCH -> SERPAPI) ===
+async def search_internet(query):
+    nl = chr(10)
+    # 1. Coba Exa AI
+    exa_key = os.getenv("EXA_API_KEY")
+    if exa_key:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post("https://api.exa.ai/search", 
+                                        headers={"x-api-key": exa_key, "Content-Type": "application/json"},
+                                        json={"query": query, "numResults": 3}, timeout=10) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        res = data.get("results", [])
+                        if res:
+                            txt = "🌐 **Hasil Pencarian (Exa):**" + nl
+                            for i in res: 
+                                txt += "- **" + str(i.get("title")) + "**" + nl + "  " + str(i.get("url")) + nl + "  " + str(i.get("text"))[:150] + "..." + nl + nl
+                            return txt
+                    elif r.status in [429, 402, 403]:
+                        print("⚠️ [SEARCH] Exa limit. Pindah ke Serper...")
+        except: pass
+
+    # 2. Coba Serper (Google)
+    serper_key = os.getenv("SERPER_API_KEY")
+    if serper_key:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post("https://google.serper.dev/search", 
+                                        headers={"X-API-KEY": serper_key, "Content-Type": "application/json"},
+                                        json={"q": query, "num": 3}, timeout=10) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        res = data.get("organic", [])
+                        if res:
+                            txt = "🌐 **Hasil Pencarian (Google/Serper):**" + nl
+                            for i in res: 
+                                txt += "- **" + str(i.get("title")) + "**" + nl + "  " + str(i.get("link")) + nl + "  " + str(i.get("snippet"))[:150] + "..." + nl + nl
+                            return txt
+                    elif r.status in [429, 402, 403]:
+                        print("⚠️ [SEARCH] Serper limit. Pindah ke LangSearch...")
+        except: pass
+
+    # 3. Coba LangSearch
+    lang_key = os.getenv("LANGSEARCH_API_KEY")
+    if lang_key:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post("https://api.langsearch.com/v1/web-search", 
+                                        headers={"Authorization": "Bearer " + str(lang_key), "Content-Type": "application/json"},
+                                        json={"query": query, "count": 3}, timeout=10) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        pages = data.get("data", {}).get("webPages", {}).get("value", [])
+                        if pages:
+                            txt = "🌐 **Hasil Pencarian (LangSearch):**" + nl
+                            for i in pages: 
+                                txt += "- **" + str(i.get("name")) + "**" + nl + "  " + str(i.get("url")) + nl + "  " + str(i.get("snippet"))[:150] + "..." + nl + nl
+                            return txt
+                    elif r.status in [429, 402, 403]:
+                        print("⚠️ [SEARCH] LangSearch limit. Pindah ke SerpApi...")
+        except: pass
+        
+    # 4. Coba SerpApi
+    serpapi_key = os.getenv("SERPAPI_KEY")
+    if serpapi_key:
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = "https://serpapi.com/search?api_key=" + str(serpapi_key) + "&q=" + query + "&engine=google"
+                async with session.get(url, timeout=10) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        res = data.get("organic_results", [])
+                        if res:
+                            txt = "🌐 **Hasil Pencarian (SerpApi):**" + nl
+                            for i in res: 
+                                txt += "- **" + str(i.get("title")) + "**" + nl + "  " + str(i.get("link")) + nl + "  " + str(i.get("snippet"))[:150] + "..." + nl + nl
+                            return txt
+        except: pass
+
+    return "❌ Semua API Search (Exa, Serper, LangSearch, SerpApi) sedang limit/error."
+
+
+# === 3. MAP PROVIDER & TASKS ===
+PROVIDERS = {
+    "chatanywhere": {"url": "https://api.chatanywhere.tech/v1/chat/completions", "key": os.getenv("CHATANYWHERE_API_KEY"), "type": "openai"},
+    "cloudflare": {"url": "https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/", "key": os.getenv("CF_API_TOKEN"), "acc": os.getenv("CF_ACCOUNT_ID"), "type": "cloudflare"},
+    "gemini": {"url": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}", "key": os.getenv("GEMINI_API_KEY"), "type": "gemini"},
+    "mistral": {"url": "https://api.mistral.ai/v1/chat/completions", "key": os.getenv("MISTRAL_API_KEY"), "type": "openai"},
+    "onomeo": {"url": "https://onomeo.com/v1/chat/completions", "key": os.getenv("ONOMEO_API_KEY"), "type": "openai"},
+    "openrouter": {"url": "https://openrouter.ai/api/v1/chat/completions", "key": os.getenv("OPENROUTER_API_KEY"), "type": "openai"},
+    "groq": {"url": "https://api.groq.com/openai/v1/chat/completions", "key": os.getenv("GROQ_API_KEY"), "type": "openai"},
+    "cohere": {"url": "https://api.cohere.com/v2/chat", "key": os.getenv("COHERE_API_KEY"), "type": "cohere"},
+    "pollinations": {"url": "https://text.pollinations.ai/openai", "key": None, "type": "openai"},
+    "llm7": {"url": "https://api.llm7.io/v1/chat/completions", "key": os.getenv("LLM7_TOKENS"), "type": "openai"}
+}
+
+TASKS = {
+    "vision": [("cohere", "command-a-vision-07-2025"), ("openrouter", "nvidia/nemotron-3.5-super-vl:free"), ("chatanywhere", "gpt-4o")],
+    "architect": [("cohere", "command-a-reasoning-08-2025"), ("groq", "qwen/qwen3.8-27b"), ("mistral", "mistral-code-latest"), ("cloudflare", "@cf/qwen/qwq-32b")],
+    "fast_chat": [("groq", "qwen/qwen3.8-27b"), ("groq", "allam-2-7b"), ("pollinations", "openai-fast"), ("cloudflare", "@cf/meta/llama-3.2-3b-instruct"), ("cohere", "command-a-reasoning-08-2025")],
+    "roleplay": [("groq", "qwen/qwen3.8-27b"), ("mistral", "ministral-14b-latest"), ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast")],
+    "emergency": [("chatanywhere", "gpt-6.1-sol"), ("chatanywhere", "gpt-4o"), ("gemini", "gemini-3.6-flash"), ("mistral", "codestral-latest")]
+}
+
+COOLDOWNS = {}
+COOLDOWN_DURATION = 300
+
+# === 4. CORE API CALLER ===
+async def _call_api(session, provider_name, model, messages, image_b64=None):
+    cfg = PROVIDERS.get(provider_name)
+    if not cfg: return None, "SKIP"
+
+    headers = {"Content-Type": "application/json"}
+    if cfg["key"]: headers["Authorization"] = f"Bearer {cfg['key']}"
+
+    if image_b64:
+        content = [{"type": "text", "text": messages[-1]["content"]}]
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}})
+        messages[-1]["content"] = content
+
+    if cfg["type"] == "gemini":
+        url = cfg["url"].format(model=model, key=cfg["key"])
+        payload = {"contents": [{"parts": [{"text": m["content"] if isinstance(m["content"], str) else m["content"][0]["text"]}]} for m in messages]}
+        if image_b64: payload["contents"][-1]["parts"].append({"inline_data": {"mime_type": "image/jpeg", "data": image_b64}})
+    elif cfg["type"] == "cloudflare":
+        url = f"{cfg['url'].format(acc=cfg['acc'])}{model}"
+        payload = {"messages": messages}
+    elif cfg["type"] == "cohere":
+        url = cfg["url"]
+        payload = {"model": model, "messages": messages}
+    else:
+        url = cfg["url"]
+        payload = {"model": model, "messages": messages, "max_tokens": 1500}
+
+    try:
+        async with session.post(url, headers=headers, json=payload, timeout=10) as r:
+            if r.status == 200:
+                data = await r.json()
+                if cfg["type"] == "gemini": return data['candidates'][0]['content']['parts'][0]['text'], "OK"
+                elif cfg["type"] == "cloudflare": return data['result']['response'], "OK"
+                else: return data['choices'][0]['message']['content'], "OK"
+            elif r.status in [429, 402, 403]: return None, "LIMIT"
+            else: return None, "ERROR"
+    except Exception: return None, "ERROR"
+
+# === 5. EXECUTE TASK (DENGAN MEMORY) ===
+async def execute_task(task_type, prompt, system_prompt="Kamu adalah asisten AI yang cerdas.", image_bytes=None, channel_id=None):
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    # Tarik ingatan dari database kalau ada channel_id
+    if channel_id:
+        history = get_chat_history(channel_id, 6)
+        for user, role, content in history:
+            messages.append({"role": role, "content": content})
+            
+    messages.append({"role": "user", "content": prompt})
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8') if image_bytes else None
+    
+    models_to_try = TASKS.get(task_type, []) + TASKS["emergency"]
+    
+    async with aiohttp.ClientSession() as session:
+        for provider, model in models_to_try:
+            model_key = (provider, model)
+            if model_key in COOLDOWNS and time.time() < COOLDOWNS[model_key]:
+                continue
+                
+            print(f"🚀 [ROUTER] Mencoba {provider} -> {model}...")
+            res, status = await _call_api(session, provider, model, messages, image_b64)
+            
+            if status == "OK" and res:
+                if channel_id:
+                    save_chat(channel_id, "User", "user", prompt)
+                    save_chat(channel_id, "Bot", "assistant", res)
+                return res
+            elif status == "LIMIT":
+                COOLDOWNS[model_key] = time.time() + COOLDOWN_DURATION
+                print(f"⚠️ [LIMIT] {provider} -> {model} penjara {COOLDOWN_DURATION}s!")
+                
+    return "❌ Maaf Bang, semua model AI sedang sibuk."
+
+# === 6. MULTI-STEP AGENT ===
+async def agent_action(guild, user_prompt, channel_id=None):
+    """Minta AI ngerencanain aksi dalam bentuk JSON List"""
+    system = """Kamu adalah Agen Server Discord. Jika user meminta perubahan server, 
+    balas HANYA dengan JSON array berisi aksi. Contoh:
+    [{"action": "create_category", "name": "Toko"}, {"action": "create_channel", "name": "info", "category": "Toko"}]
+    Aksi yang tersedia: create_category, create_channel, create_role.
+    Jika tidak ada aksi server, balas dengan "CHAT: [jawaban biasa]".
+    """
+    res = await execute_task("architect", user_prompt, system, channel_id=channel_id)
+    
+    if not res or not res.strip().startswith("["): return None
+    
+    try:
+        actions = json.loads(res)
+        for act in actions:
+            if act["action"] == "create_category":
+                await guild.create_category(act["name"])
+            elif act["action"] == "create_channel":
+                cat = discord.utils.get(guild.categories, name=act.get("category"))
+                await guild.create_text_channel(act["name"], category=cat)
+            elif act["action"] == "create_role":
+                await guild.create_role(name=act["name"])
+        return f"✅ Berhasil mengeksekusi {len(actions)} aksi sekaligus!"
+    except Exception as e:
+        return f"❌ Gagal eksekusi agen: {e}"

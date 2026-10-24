@@ -1,0 +1,101 @@
+import discord
+from discord.ext import commands
+import os
+import json
+from dotenv import load_dotenv
+from ai_engine import execute_task, agent_action, search_internet
+from keep_alive import keep_alive
+
+load_dotenv()
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot {bot.user} udah online!")
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="🤖 127 AI | Memory + Search"))
+
+@bot.event
+async def on_message(message):
+    if message.author.bot: return
+
+    # --- FITUR SEARCH INTERNET ---
+    if message.content.startswith("!cari "):
+        query = message.content[6:]
+        msg = await message.reply("🌐 **Mencari di internet...**")
+        res = await search_internet(query)
+        await msg.edit(content=res[:2000])
+        return
+
+    # --- FITUR MENTION (AGENT + CHAT + MEMORY) ---
+    if bot.user.mentioned_in(message) and not message.mention_everyone:
+        prompt = message.content.replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '').strip()
+        
+        if prompt:
+            async with message.channel.typing():
+                # Cek apakah ini perintah aksi server (Agent)
+                action_res = await agent_action(message.guild, prompt, message.channel.id)
+                
+                if action_res:
+                    await message.reply(action_res)
+                else:
+                    # Kalau bukan aksi, jadiin chat biasa (pakai memory)
+                    response = await execute_task("roleplay", prompt, channel_id=message.channel.id)
+                    await message.reply(response[:2000])
+
+    # --- FITUR VISION-TO-SERVER ---
+    elif message.attachments and "buatkan server" in message.content.lower():
+        await message.reply("🧠 **AI Vision sedang membaca screenshot...**")
+        attachment = message.attachments[0]
+        if not attachment.content_type.startswith("image/"):
+            return await message.reply("❌ File harus gambar.")
+        image_bytes = await attachment.read()
+        
+        prompt = """
+        Analyze this Discord server screenshot. Extract all categories, channels, and roles.
+        Output ONLY JSON: {"categories": [{"name": "CATEGORY", "channels": [{"name": "channel-name", "type": "text"}]}], "roles": ["Role1"]}
+        """
+        result = await execute_task("vision", prompt, "You are a strict JSON generator.", image_bytes, channel_id=message.channel.id)
+        
+        try:
+            clean_json = result.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
+            
+            embed = discord.Embed(title="🏗️ Rencana Pembangunan Server", color=discord.Color.gold())
+            cat_list = ""
+            for cat in data.get("categories", []):
+                ch_names = ", ".join([f"#{c['name']}" for c in cat.get("channels", [])])
+                cat_list += f"**{cat['name']}**: {ch_names}\n"
+            
+            embed.add_field(name="Kategori & Channel", value=cat_list[:1000] or "Tidak ada", inline=False)
+            embed.add_field(name="Role", value=", ".join(data.get("roles", [])) or "Tidak ada", inline=False)
+            embed.set_footer(text="Ketik 'YA' untuk membangun.")
+            await message.reply(embed=embed)
+            
+            bot.temp_server_data = getattr(bot, 'temp_server_data', {})
+            bot.temp_server_data[message.author.id] = data
+        except Exception as e:
+            await message.reply(f"❌ Gagal parse JSON: {e}\nRespons: {result[:300]}")
+
+    elif message.content.lower() == "ya" and getattr(bot, 'temp_server_data', {}).get(message.author.id):
+        data = bot.temp_server_data.pop(message.author.id)
+        await message.reply("⏳ **Mulai membangun server...**")
+        for role_name in data.get("roles", []):
+            if not discord.utils.get(message.guild.roles, name=role_name):
+                await message.guild.create_role(name=role_name)
+        for cat in data.get("categories", []):
+            category = await message.guild.create_category(cat['name'])
+            for ch in cat.get('channels', []):
+                if ch.get('type') == 'voice': await message.guild.create_voice_channel(ch['name'], category=category)
+                else: await message.guild.create_text_channel(ch['name'], category=category)
+        await message.reply("✅ **Server berhasil dibangun!**")
+
+    await bot.process_commands(message)
+
+keep_alive()
+TOKEN = os.getenv("DISCORD_TOKEN")
+if TOKEN: bot.run(TOKEN)

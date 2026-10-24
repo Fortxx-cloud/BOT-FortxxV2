@@ -1,0 +1,251 @@
+{
+  "kubu": 3,
+  "total": 42,
+  "ok": [
+    {
+      "provider": "kilocode",
+      "model": "reflection/beam-free",
+      "elapsed": 4.34,
+      "grade": "BENAR",
+      "answer": "Ambil 1 buah dari kotak C (berlabel “Apel+Jeruk”). Karena semua label salah, C tidak berisi campuran.\n\n- Jika yang keluar **Apel**, maka C berisi **Apel saja**.\n  - Kotak A berlabel “Apel” salah, jadi A bukan Apel.\n  - Kotak B berlabel “Jeruk” salah, jadi B bukan Jeruk.\n  - Sisa isi: Jeruk dan Apel+Jeruk untuk A dan B.\n  - Karena B bukan Jeruk, B harus **Apel+Jeruk**, dan A harus **Jeruk**.\n\n- Jika yang keluar **Jeruk**, maka C berisi **Jeruk saja**.\n  - A bukan Apel, B bukan Jeruk.\n  - Sisa isi: Apel dan Apel+Jeruk.\n  - Karena A bukan Apel, A harus **Apel+Jeruk**, dan B harus **Apel**.\n\nJAWABAN AKHIR: Ambil satu buah dari kotak C; hasilnya menentukan C, lalu dua kotak lain ditentukan dari label yang pasti salah dan sisa isi."
+    },
+    {
+      "provider": "ovh",
+      "model": "Meta-Llama-3_3-70B-Instruct",
+      "elapsed": 7.92,
+      "grade": "BENAR",
+      "answer": "Untuk menentukan isi ketiga kotak dengan pasti, kita dapat melakukan langkah-langkah berikut:\n\n1. Ambil 1 buah dari kotak C yang berlabel 'Apel+Jeruk'. \n2. Karena labelnya pasti salah, maka kotak C tidak mungkin berisi Apel dan Jeruk secara bersamaan. \n3. Jika buah yang diambil dari kotak C adalah Apel, maka kotak C sebenarnya berisi Apel saja. \n4. Karena label kotak A adalah 'Apel' dan pasti salah, maka kotak A tidak mungkin berisi Apel. \n5. Dengan demikian, kotak A pasti berisi Jeruk. \n6. Karena label kotak B adalah 'Jeruk' dan pasti salah, maka kotak B tidak mungkin berisi Jeruk. \n7. Jadi, kotak B pasti berisi Apel dan Jeruk.\n\nJAWABAN AKHIR:"
+    },
+    {
+      "provider": "kilocode",
+      "model": "kilo-auto/small",
+      "elapsed": 12.83,
+      "grade": "BENAR",
+      "answer": "Berikut adalah langkah-langkah logis untuk menyelesaikan teka-teki ini:\n\n**1. Analisis Kondisi Awal:**\n*   Kotak A: Label 'Apel' (Isi sebenarnya: Jeruk atau Apel+Jeruk)\n*   Kotak B: Label 'Jeruk' (Isi sebenarnya: Apel atau Apel+Jeruk)\n*   Kotak C: Label 'Apel+Jeruk' (Isi sebenarnya: Apel atau Jeruk)\n*   **Kunci Utama:** Semua label **pasti salah**.\n\n**2. Strategi Pengambilan:**\nKamu harus mengambil satu buah dari **Kotak C (Label 'Apel+Jeruk')**.\n\n**3. Reasoning Step-by-Step:**\n\n*   **Langkah 1 (Ambil dari Kotak C):** Karena label 'Apel+Jeruk' pasti salah, maka isi Kotak C hanya mungkin berisi **Apel saja** atau **Jeruk saja**.\n    *   *Skenario 1:* Jika kamu mengambil **Apel**, maka Kotak C adalah kotak **Apel**.\n    *   *Skenario 2:* Jika kamu mengambil **Jeruk**, maka Kotak C adalah kotak **Jeruk**.\n\n*   **Langkah 2 (Menentukan Kotak Lain - Menggunakan Skenario 1 sebagai contoh):**\n    Misalkan kamu mengambil **Apel** dari Kotak C. Maka:\n    *   **Kotak C = Apel.**\n    *   Sisa label yang belum terisi adalah 'Jeruk' dan 'Apel+Jeruk'.\n    *   Sisa kotak yang belum diketahui isinya adalah Kotak A dan Kotak B.\n    *   Lihat Kotak B (Label 'Jeruk'): Karena label harus salah, Kotak B tidak boleh berisi Jeruk. Karena Apel sudah ada di Kotak C, maka satu-satunya pilihan untuk **Kotak B adalah Apel+Jeruk**.\n    *   Sisa satu kotak lagi, yaitu **Kotak A, pasti berisi Jeruk**.\n\n*   **Langkah 3 (Menentukan Kotak Lain - Menggunakan Skenario 2 sebagai contoh):**\n    Misalkan kamu mengambil **Jeruk** dari Kotak C. Maka:\n    *   **Kotak C = Jeruk.**\n    *   Sisa label: 'Apel' dan 'Apel+Jeruk'.\n    *   Sisa kotak: Kotak A dan Kotak B.\n    *   Lihat Kotak A (Label 'Apel'): Karena label harus salah, Kotak A tidak boleh berisi Apel. Karena Jeruk sudah ada di Kotak C, maka satu-satunya pilihan untuk **Kotak A adalah Apel+Jeruk**.\n    *   Sisa satu kotak lagi, yaitu **Kotak B, pasti berisi Apel**.\n\n**Kesimpulan:**\nAmbil dari kotak berlabel campuran ('Apel+Jeruk'), lalu gunakan metode eliminasi terhadap label yang tersisa.\n\nJAWABAN AKHIR: Ambil 1 buah dari **Kotak C (label 'Apel+Jeruk')**. Jika yang terambil Apel, maka C=Apel, B=Apel+Jeruk, A=Jeruk. Jika yang terambil Jeruk, maka C=Jeruk, A=Apel+Jeruk, B=Apel."
+    },
+    {
+      "provider": "ovh",
+      "model": "Mistral-Nemo-Instruct-2407",
+      "elapsed": 3.73,
+      "grade": "BENAR",
+      "answer": "Langkah 1: Ambil 1 buah dari kotak A yang berlabel 'Apel'.\nLangkah 2: Jika buah yang Anda ambil adalah apel, maka label kotak A benar dan label kotak B dan C salah. Oleh karena itu, kotak C yang berlabel 'Apel+Jeruk' harus berisi jeruk saja.\nLangkah 3: Jika buah yang Anda ambil bukan apel, maka label kotak A salah dan label kotak B dan C benar. Oleh karena itu, kotak C yang berlabel 'Apel+Jeruk' harus berisi apel saja.\nJAWABAN AKHIR: Dengan cara ini, Anda dapat menentukan isi ketiga kotak dengan pasti."
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "elapsed": 14.79,
+      "grade": "BENAR",
+      "answer": "**Langkah-langkah:**\n\n1. **Ketentuan:** Ketiga label kotak **pastilah salah**. Artinya:\n   - Kotak A (label 'Apel') **bukan** berisi hanya apel.\n   - Kotak B (label 'Jeruk') **bukan** berisi hanya jeruk.\n   - Kotak C (label 'Apel+Jeruk') **bukan** berisi campuran apel dan jeruk.\n\n2. **Strategi:** Ambil **1 buah dari kotak C (label 'Apel+Jeruk')**.  \n   Karena labelnya salah, kotak C **hanya berisi apel** atau **hanya berisi jeruk** (bukan campuran).\n\n3. **Kasus 1: Keluar apel dari kotak C**  \n   → Kotak C = **hanya apel**.  \n   → Kotak A (label 'Apel') salah, jadi bukan apel; juga bukan campuran (karena C sudah apel), maka kotak A = **hanya jeruk**.  \n   → Kotak B (label 'Jeruk') salah, jadi bukan jeruk; sisa adalah campuran, maka kotak B = **apel+jeruk**.\n\n4. **Kasus 2: Keluar jeruk dari kotak C**  \n   → Kotak C = **hanya jeruk**.  \n   → Kotak B (label 'Jeruk') salah, jadi bukan jeruk; juga bukan campuran (karena C sudah jeruk), maka kotak B = **hanya apel**.  \n   → Kotak A (label 'Apel') salah, jadi bukan apel; sisa"
+    },
+    {
+      "provider": "ovh",
+      "model": "Qwen2.5-VL-72B-Instruct",
+      "elapsed": 8.56,
+      "grade": "BENAR",
+      "answer": "Langkah pertama, kita perlu memilih kotak yang akan kita ambil buahnya. Kotak C berlabel 'Apel+Jeruk' adalah pilihan terbaik karena label ini menyatakan adanya dua jenis buah. Karena semua label salah, maka kotak C tidak bisa berisi campuran Apel dan Jeruk.\n\nLangkah kedua, ambil satu buah dari kotak C. Misalkan kita mendapatkan Apel. Ini berarti kotak C hanya berisi Apel, bukan campuran Apel dan Jeruk seperti yang tertulis pada labelnya.\n\nLangkah ketiga, sekarang kita tahu bahwa kotak C berisi Apel. Label kotak A dan B juga salah, jadi kotak A tidak berisi Apel dan kotak B tidak berisi Jeruk. Jika kotak A tidak berisi Apel, maka harus berisi Jeruk. Dan jika kotak B tidak berisi Jeruk, maka harus berisi campuran Apel dan Jeruk.\n\nJadi, dengan mengambil satu buah dari kotak C, kita dapat menentukan isi ketiga kotak dengan pasti.\n\nJAWABAN AKHIR: Ambil satu buah dari kotak C, jika mendapatkan Apel, maka kotak C berisi Apel, kotak A berisi Jeruk, dan kotak B berisi campuran Apel dan Jeruk."
+    },
+    {
+      "provider": "ovh",
+      "model": "Mistral-Small-3.2-24B-Instruct-2506",
+      "elapsed": 13.47,
+      "grade": "BENAR",
+      "answer": "1. **Analisis Label yang Salah**: Kita tahu bahwa semua label pada kotak-kotak tersebut salah. Ini berarti:\n   - Kotak A tidak berisi hanya Apel.\n   - Kotak B tidak berisi hanya Jeruk.\n   - Kotak C tidak berisi campuran Apel dan Jeruk.\n\n2. **Pilihan Pertama**: Ambil satu buah dari kotak C (yang berlabel 'Apel+Jeruk').\n   - Karena label C salah, maka kotak C tidak berisi campuran Apel dan Jeruk. Jadi, kotak C harus berisi hanya Apel atau hanya Jeruk.\n\n3. **Identifikasi Isi Kotak C**:\n   - Jika kamu mengambil sebuah Apel dari kotak C, maka kotak C berisi hanya Apel.\n   - Jika kamu mengambil sebuah Jeruk dari kotak C, maka kotak C berisi hanya Jeruk.\n\n4. **Determinasi Isi Kotak Lainnya**:\n   - **Jika kotak C berisi hanya Apel**:\n     - Kotak A tidak bisa berisi hanya Apel (karena label salah), jadi kotak A harus berisi hanya Jeruk.\n     - Kotak B tidak bisa berisi hanya Jeruk (karena label salah), jadi kotak B harus berisi campuran Apel dan Jeruk.\n   - **Jika kotak C berisi hanya Jeruk**:\n     - Kotak B tidak bisa berisi hanya Jeruk (karena label salah), jadi kotak B harus berisi hanya Apel.\n     - Kotak A tidak bisa berisi hanya Apel (karena label salah), jadi kotak A harus berisi campuran Apel dan Jeruk.\n\n5. **Konfirmasi**:\n   - Dengan mengambil satu buah dari kotak C, kita dapat menentukan isi semua kotak dengan pasti.\n\nJAWABAN AKHIR: Ambil satu buah dari kotak C. Jika buahnya Apel, maka kotak C berisi hanya Apel, kotak A berisi hanya Jeruk, dan kotak B berisi campuran Apel dan Jeruk. Jika buahnya Jeruk, maka kotak C berisi hanya Jeruk, kotak B berisi hanya Apel, dan kotak A berisi campuran Apel dan Jeruk."
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-120b",
+      "elapsed": 2.04,
+      "grade": "BENAR",
+      "answer": "**Langkah‑langkah penentuan isi ketiga kotak**\n\n1. **Ketahui kondisi awal**  \n   - Semua label **salah**.  \n   - Ada tiga jenis isi: *Apel saja*, *Jeruk saja*, dan *Campuran (Apel + Jeruk)*.\n\n2. **Pilih kotak yang paling informatif**  \n   - Karena label “Apel+Jeruk” pasti salah, kotak C **tidak** berisi campuran.  \n   - Jadi kotak C hanya berisi **Apel saja** atau **Jeruk saja**.\n\n3. **Ambil satu buah dari kotak C** (tanpa melihat isi sebelumnya).  \n   - **Jika buah yang diambil = Apel** → Kotak C = *Apel saja*.  \n   - **Jika buah yang diambil = Jeruk** → Kotak C = *Jeruk saja*.\n\n4. **Gunakan fakta label salah untuk menebak dua kotak tersisa**  \n\n   - **Kasus 1:** Kotak C ternyata *Apel saja* (karena buah yang diambil Apel).  \n     - Label kotak A = “Apel”. Karena label salah, A **bukan** Apel.  \n     - Satu-satunya isi yang belum dipakai selain *Apel* adalah *Campuran* atau *Jeruk*.  \n     - Kotak B berlabel “Jeruk”. Labelnya juga salah, jadi B **bukan** Jeruk.  \n     - Karena C sudah dipastikan Apel, B tidak bisa Jeruk → B harus *Campuran*.  \n     - Kotak A yang tersisa otomatis menjadi *Jeruk saja*.\n\n   - **Kasus 2:** Kotak C ternyata *Jeruk saja* (karena buah yang diambil Jeruk).  \n     - Label kotak A = “Apel”. Karena label salah, A **bukan** Apel.  \n     - Kotak B berlabel “Jeruk”. Labelnya salah, jadi B **bukan** Jeruk.  \n     - Karena C sudah Jeruk, B tidak bisa Jeruk → B harus *Campuran*.  \n     - Kotak A yang tersisa otomatis menjadi *Apel saja*.\n\n5. **Kesimpulan**  \n   - Dengan **satu kali pengambilan** dari kotak yang berlabel “Apel+Jeruk”, kita dapat menentukan secara pasti isi semua kotak:\n     - Kotak yang diambil → isi langsung diketahui.  \n     - Dua kotak lainnya ditentukan lewat logika “label pasti salah”.\n\n**JAWABAN AKHIR:** Ambil satu buah dari kotak berlabel “Apel+Jeruk”. Jika buahnya Apel, maka kotak itu berisi *Apel saja*; kotak berlabel “Jeruk” menjadi *Campuran*, dan kotak berlabel “Apel” menjadi *Jeruk saja*. Jika buahnya Jeruk, maka kotak itu berisi *Jeruk saja*; kotak berlabel “Apel” menjadi *Campuran*, dan kotak berlabel “Jeruk” menjadi *Apel saja*. Dengan cara ini isi ketiga kotak dapat ditentukan dengan pasti."
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-20b",
+      "elapsed": 1.38,
+      "grade": "SALAH",
+      "answer": "**Langkah‑langkah logis:**\n\n1. **Pilih kotak yang labelnya “Apel + Jeruk”.**  \n   Karena semua label salah, kotak ini tidak berisi campuran. Ia hanya berisi semua Apel **atau** semua Jeruk.\n\n2. **Ambil satu buah dari kotak tersebut.**  \n   - Jika yang diambil **Apel**, maka kotak “Apel + Jeruk” sebenarnya berisi **hanya Apel**.  \n   - Jika yang diambil **Jeruk**, maka kotak “Apel + Jeruk” sebenarnya berisi **hanya Jeruk**.\n\n3. **Tentukan kotak “Apel”.**  \n   Kotak ini tidak boleh berisi Apel (label salah) dan tidak boleh berisi campuran (karena sudah diketahui kotak “Apel + Jeruk” tidak campuran).  \n   Jadi kotak “Apel” harus berisi **Jeruk**.\n\n4. **Kotak “Jeruk” tersisa.**  \n   Sisa kotak yang belum diketahui harus berisi **campuran Apel + Jeruk**.\n\n**Contoh konkret:**\n\n- Ambil satu buah dari kotak “Apel + Jeruk” → terdeteksi Apel.  \n  → Kotak “Apel + Jeruk” = semua Apel.  \n  → Kotak “Apel” = semua Jeruk.  \n  → Kotak “Jeruk” = campuran Apel + Jeruk.\n\nJika yang diambil Jeruk, urutan terbalik (kotak “Apel + Jeruk” = semua Jeruk, kotak “Apel” = semua Apel, kotak “Jeruk” = campuran).\n\n**JAWABAN AKHIR:**  \nAmbil satu buah dari kotak yang labelnya “Apel + Jeruk”. Jika buahnya Apel, maka kotak itu berisi semua Apel; kotak “Apel” berisi semua Jeruk; kotak “Jeruk” berisi campuran. Jika buahnya Jeruk, urutan terbalik. Dengan satu ambil saja, isi ketiga kotak dapat ditentukan dengan pasti."
+    },
+    {
+      "provider": "groq",
+      "model": "allam-2-7b",
+      "elapsed": 0.87,
+      "grade": "SALAH",
+      "answer": "Jawaban Akhir:\n\nPermulaan, kami tahu bahwa semua label pasti salah karena kami tidak memiliki informasi tentang isi kotak secara langsung. Untuk menentukan isi kotak, kita akan mengevaluasi beberapa strategi dan menemukan strategi yang paling efektif untuk menentukan isi ketiga kotak dengan pasti.\n\n1. Strategi 1: Pilih kotak dengan label 'Apel'\nKami pilih kotak dengan label 'Apel'. Kami mengambil buah dari kotak terpilih dan mengevaluasikan apakah buah itu apel atau jeruk. Jika buah itu adalah apel, kotak 'Apel' adalah benar dan kotak 'Jeruk' dan 'Apel+Jeruk' adalah salah. Jika buah itu adalah jeruk, kotak 'Apel' adalah salah dan kotak 'Jeruk' dan 'Apel+Jeruk' adalah benar. Namun, kami tidak akan menemukan benar-benar apa yang ada di kotak 'Apel' dan 'Jeruk' karena kami belum memiliki informasi tentang kotak 'Apel+Jeruk'.\n\n2. Strategi 2: Pilih kotak dengan label 'Jeruk'\nKami pilih kotak dengan label 'Jeruk'. Kami mengambil buah dari kotak terpilih dan mengevaluasikan apakah buah itu apel atau jeruk. Jika buah itu adalah apel, kotak 'Apel' adalah benar dan kotak 'Jeruk' dan 'Apel+Jeruk' adalah salah. Jika buah itu adalah jeruk, kotak 'Apel' adalah salah dan kotak 'Jeruk' dan 'Apel+Jeruk' adalah benar. Namun, kami tidak akan menemukan benar-benar apa yang ada di kotak 'Apel' dan 'Jeruk' karena kami belum memiliki informasi tentang kotak 'Apel+Jeruk'.\n\n3. Strategi 3: Pilih kotak dengan label 'Apel+Jeruk'\nKami pilih kotak dengan label 'Apel+Jeruk'. Kami mengambil buah dari kotak terpilih dan mengevaluasikan apakah buah itu apel atau jeruk. Jika buah itu adalah apel, kotak 'Apel' adalah benar dan kotak 'Jeruk' dan 'Apel+Jeruk' adalah salah. Jika buah itu adalah jeruk, kotak 'Apel' adalah salah dan kotak 'Jeruk' dan 'Apel+Jeruk' adalah benar.\n\n4. Strategi 4: Mengevaluasi kotak dengan label 'Apel+Jeruk'\nKami mengevaluasi kotak dengan label 'Apel+Jeruk'. Kami mengambil buah dari kotak terpilih dan mengevaluasikan apakah buah itu apel atau jeruk. Jika buah itu adalah apel, kotak 'Apel' adalah benar dan kotak 'Jeruk' dan 'Apel+Jeruk' adalah salah. Jika buah itu adalah jeruk, kotak 'Apel' adalah salah dan kotak 'Jeruk' dan 'Apel+Jeruk' adalah benar.\n\n5. Strategi 5: Mengevaluasi kotak dengan label 'Jeruk'\nKami mengevaluasi kotak dengan label 'Jeruk'. Kami mengambil bu"
+    },
+    {
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b",
+      "elapsed": 1.89,
+      "grade": "BENAR",
+      "answer": "Karena ketiga label pasti salah, kita dapat menganalisis kemungkinan isi setiap kotak berdasarkan label yang salah tersebut:\n\n1.  **Analisis Label:**\n    *   Kotak A berlabel \"Apel\" $\\rightarrow$ Isinya **bukan** Apel.\n    *   Kotak B berlabel \"Jeruk\" $\\rightarrow$ Isinya **bukan** Jeruk.\n    *   Kotak C berlabel \"Apel+Jeruk\" $\\rightarrow$ Isinya **bukan** campuran (Apel+Jeruk). Artinya, Kotak C berisi **satu jenis buah saja** (murni Apel atau murni Jeruk).\n\n2.  **Strategi Pengambilan:**\n    Ambil 1 buah dari **Kotak C**.\n    *   Mengapa Kotak C? Karena kita tahu pasti Kotak C berisi buah murni (bukan campuran). Jika kita mengambil dari A atau B, kita tidak bisa membedakan apakah itu buah murni atau campuran hanya dengan melihat satu buah (karena A bisa berisi Jeruk murni atau Apel+Jeruk, dan B bisa berisi Apel murni atau Apel+Jeruk). Namun, karena C pasti murni, satu buah yang diambil akan menentukan isi C secara pasti.\n\n3.  **Skenario Hasil:**\n\n    **Skenario 1: Buah yang diambil dari Kotak C adalah APel.**\n    *   Maka, **Kotak C berisi Apel**.\n    *   Sekarang lihat Kotak A (label \"Apel\"). Karena label salah, A bukan Apel. Karena C sudah Apel, A tidak mungkin Apel. Apakah A Jeruk atau Campuran?\n    *   Lihat Kotak B (label \"Jeruk\"). Karena label salah, B bukan Jeruk.\n    *   Sisa isi untuk A dan B adalah: Jeruk dan Campuran (Apel+Jeruk).\n    *   Kotak B tidak boleh Jeruk, jadi **Kotak B harus berisi Campuran (Apel+Jeruk)**.\n    *   Maka, **Kotak A harus berisi Jeruk**.\n    *   *Cek:* A(Jeruk) vs Label(Apel) -> Salah. B(Campuran) vs Label(Jeruk) -> Salah. C(Apel) vs Label(Campuran) -> Salah. Valid.\n\n    **Skenario 2: Buah yang diambil dari Kotak C adalah JERUK.**\n    *   Maka, **Kotak C berisi Jeruk**.\n    *   Sekarang lihat Kotak B (label \"Jeruk\"). Karena label salah, B bukan Jeruk.\n    *   Sisa isi untuk A dan B adalah: Apel dan Campuran (Apel+Jeruk).\n    *   Kotak A (label \"Apel\") tidak boleh Apel. Jadi A tidak bisa Apel.\n    *   Maka, **Kotak A harus berisi Campuran (Apel+Jeruk)**.\n    *   Maka, **Kotak B harus berisi Apel**.\n    *   *Cek:* A(Campuran) vs Label(Apel) -> Salah. B(Apel) vs Label(Jeruk) -> Salah. C(Jeruk) vs Label(Campuran) -> Salah. Valid.\n\n**Kesimpulan Langkah:**\nAmbil 1 buah dari **Kotak C**.\n- Jika Apel, maka: C=Apel, B=Campuran, A=Jeruk.\n- Jika Jeruk, maka: C=Jeruk, A=Campuran, B=Apel.\n\nJAWABAN AKHIR: Ambil 1 buah dari Kotak C. Jika yang keluar Apel, maka isi kotak adalah: C=Apel, B=Campuran, A=Jeruk. Jika yang keluar Jeruk, maka isi kotak adalah: C=Jeruk, A=Campuran, B=Apel."
+    },
+    {
+      "provider": "blockrun",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "elapsed": 9.1,
+      "grade": "BENAR",
+      "answer": "**Langkah‑langkah penyelesaian**\n\n1. **Kenali fakta dasar**  \n   - Semua label salah.  \n   - Kotak C berlabel “Apel + Jeruk”. Karena labelnya salah, kotak C tidak boleh berisi keduanya; ia berisi **hanya** Apel **atau** hanya Jeruk.\n\n2. **Ambil satu buah dari kotak C** (tanpa melihat isi).  \n   - Jika buah yang diambil **Apel** → kotak C berisi **hanya Apel**.  \n   - Jika buah yang diambil **Jeruk** → kotak C berisi **hanya Jeruk**.\n\n3. **Dari hasil tersebut, inferisikan isi kotak lain**  \n\n   **a. Jika C = Apel**  \n   - Kotak A berlabel “Apel” (salah) → tidak boleh berisi Apel, sehingga harus berisi **Jeruk**.  \n   - Kotak B berlabel “Jeruk” (salah) → tidak boleh berisi Jeruk, sehingga harus berisi **Apel**.  \n\n   **b. Jika C = Jeruk**  \n   - Kotak A berlabel “Apel” (salah) → tidak boleh berisi Apel, sehingga harus berisi **Apel + Jeruk** (campuran).  \n   - Kotak B berlabel “Jeruk” (salah) → tidak boleh berisi Jeruk, sehingga harus berisi **Apel**.\n\n4. **Kesimpulan**  \n   Dengan mengambil satu buah dari kotak yang berlabel “Apel + Jeruk” (kotak C) kita langsung mengetahui isi semua tiga kotak.\n\n**JAWABAN AKHIR:** Ambil satu buah dari kotak C (berlabel “Apel+Jeruk”). Jika itu Apel, maka C=Apel, A=Jeruk, B=Apel; jika itu Jeruk, maka C=Jeruk, A=Apel+Jeruk, B=Apel."
+    },
+    {
+      "provider": "blockrun",
+      "model": "nvidia/nemotron-3.5-lightning",
+      "elapsed": 9.69,
+      "grade": "REVIEW",
+      "answer": "Here's a thinking process:\n\n1.  **Analyze the Problem:**\n   - 3 boxes: A, B, C\n   - Labels: A='Apple', B='Orange', C='Apple+Orange'\n   - Crucial constraint: All 3 labels are WRONG (mislabeled).\n   - Action: I can pick exactly 1 fruit from exactly 1 box (without looking inside the box I pick from, but I see the fruit I draw).\n   - Goal: Determine the exact contents of all 3 boxes with certainty.\n\n2.  **Identify the Key Logic:**\n   - Since all labels are wrong, box C (labeled 'Apple+Orange') cannot contain both. It must contain only apples, only oranges, or... wait, it's labeled 'Apple+Orange', and it's wrong, so it's NOT apple+orange. It's either all apples or all oranges.\n   - Box A (labeled 'Apple') is wrong, so it's not all apples. It's either all oranges or mixed... wait, if it's wrong, it can't be 'Apple'. So it's either 'Orange' or 'Apple+Orange'.\n   - Box B (labeled 'Orange') is wrong, so it's not all oranges. It's either 'Apple' or 'Apple+Orange'.\n\n   Let's list possibilities systematically:\n   - Actual contents of A, B, C are permutations of {Apple, Orange, Apple+Orange}\n   - Constraint: Label != Actual for each box.\n   - Labels: A:Apple, B:Orange, C:Apple+Orange\n   - So:\n     A ≠ Apple → A is Orange or Apple+Orange\n     B ≠ Orange → B is Apple or Apple+Orange\n     C ≠ Apple+Orange → C is Apple or Orange\n\n   Since there's one of each type (Apple, Orange, Apple+Orange), let's find valid assignments:\n   - If C = Apple, then A and B must be Orange and Apple+Orange in some order.\n     A ≠ Apple (ok if A=Orange or Apple+Orange), B ≠ Orange (ok if B=Apple or Apple+Orange).\n     If C=Apple, then remaining are Orange and Apple+Orange.\n     A could be Orange → then B must be Apple+Orange. Check: A=Orange (label Apple → wrong, ok), B=Apple+Orange (label Orange → wrong, ok). Valid.\n     If C=Apple, A=Apple+Orange → then B=Orange. Check: A=Apple+Orange (label Apple → wrong, ok), B=Orange (label Orange → wrong, ok). Valid.\n   - If C = Orange, then remaining are Apple and Apple+Orange.\n     A ≠ Apple → A must be Apple+Orange (since Apple is taken by C? wait C=Orange, so Apple and Apple+Orange left for A,B)\n     If A=Apple+Orange (label Apple → wrong, ok), B=Apple (label Orange → wrong, ok). Valid.\n     If A=Apple → invalid (label Apple matches).\n   - So valid configurations:\n     1. A=Orange, B=Apple+Orange, C=Apple\n     2. A=Apple+Orange, B=Orange, C=Apple\n     3. A=Apple+Orange, B=Apple, C=Orange\n     (And maybe more? Let's check symmetry. Actually, the standard puzzle has exactly 2 valid configurations, but let's not overcomplicate. The key is the strategy.)\n\n3.  **Determine the Strategy:**\n   - I can pick 1 fruit from 1 box.\n   - Which box should I pick from to maximize information?\n   - Box C is labeled 'Apple+Orange', and we know it's wrong, so it's either all Apple or all Orange.\n   - If I pick from C, I'll get either an Apple or an Orange. \n     - If I get Apple → C is actually 'Apple' (all apples).\n     - If I get Orange → C is actually 'Orange' (all oranges).\n   - Then what? \n     - Suppose I draw an Apple from C. So C = Apple.\n     - Now A is labeled 'Apple', but wrong, so A ≠ Apple. B is labeled 'Orange', wrong, so B ≠ Orange.\n     - Remaining contents: Orange and Apple+Orange for A and B.\n     - A is labeled Apple, wrong → A is either Orange or Apple+Orange.\n     - B is labeled Orange, wrong → B is either Apple or Apple+Orange.\n     - But we know C=Apple, so Apple is taken. Thus B cannot be Apple (since only one Apple box"
+    },
+    {
+      "provider": "blockrun",
+      "model": "nvidia/llama-3.2-11b-vision",
+      "elapsed": 6.25,
+      "grade": "BENAR",
+      "answer": "1. Karena semua label salah, kotak C (berlabel “Apel+Jeruk”) tidak dapat berisi dua jenis buah sekaligus; ia hanya berisi satu jenis buah.  \n2. Ambil satu buah dari kotak C tanpa melihat isi kotaknya.  \n3. Jika buah yang diambil adalah **Apel**, maka kotak C memang berisi hanya Apel.  \n   - Karena label “Apel” pada kotak A salah, kotak A tidak boleh berisi Apel, sehingga kotak A berisi **Jeruk**.  \n   - Kotak B (berlabel “Jeruk”) yang belum ditentukan harus berisi **Apel** (karena Apel sudah ada di kotak C).  \n4. Jika buah yang diambil adalah **Jeruk**, maka kotak C memang berisi hanya Jeruk.  \n   - Karena label “Apel” pada kotak A salah, kotak A tidak boleh berisi Jeruk, sehingga kotak A berisi **Apel**.  \n   - Kotak B (berlabel “Jeruk”) yang belum ditentukan harus berisi **Jeruk** (karena Jeruk sudah ada di kotak C).  \n5. Dengan satu buah dari kotak C kita sudah dapat menentukan isi semua kotak dengan pasti.\n\n**JAWABAN AKHIR:** Ambil satu buah dari kotak C (berlabel “Apel+Jeruk”); setelah melihat jenis buah, isi kotak‑kotak lainnya dapat ditentukan dengan pasti."
+    }
+  ],
+  "fail": [
+    {
+      "provider": "kilocode",
+      "model": "kilo-auto/free",
+      "error": "ERR:AttributeError:'NoneType' object has no attribute 'strip'"
+    },
+    {
+      "provider": "kilocode",
+      "model": "poolside/laguna-s-2.1:free",
+      "error": "ERR:AttributeError:'NoneType' object has no attribute 'strip'"
+    },
+    {
+      "provider": "onomeo",
+      "model": "gemini-3.5-flash-lite",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "auto",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "gemini-3.1-flash-lite",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "muse-glimmer-30b",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "minimax-m2.7",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "codestral-latest",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "gpt-oss-20b",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "ministral-14b-latest",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "deepseek-v4-flash",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "glm-5.2",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "glm-4.7-flash",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-content-safety:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "stealth/glyph-cluster",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "recursive/flint-v1.0:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "glm-4.6v-flash",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "liquid/lfm-2.5-2.6b:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "poolside/laguna-s-2.1:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "cohere/north-mini-code:free",
+      "error": "LIMIT(429)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "glm-4.5-flash",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "onomeo",
+      "model": "hy4-preview",
+      "error": "LIMIT(403)"
+    },
+    {
+      "provider": "openrouter",
+      "model": "openrouter/free",
+      "error": "LIMIT(429)"
+    }
+  ],
+  "grades": {
+    "BENAR": 11,
+    "SALAH": 2,
+    "REVIEW": 1
+  }
+}

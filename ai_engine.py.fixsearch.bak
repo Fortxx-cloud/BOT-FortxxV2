@@ -1,0 +1,685 @@
+import os
+import aiohttp
+from webless import search as webless_search
+import asyncio
+import base64
+import json
+import time
+import sqlite3
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# === 1. PERMANENT MEMORY (SQLITE) ===
+DB_FILE = "memory.db"
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS chat_history 
+                 (id INTEGER PRIMARY KEY, channel_id TEXT, user_name TEXT, role TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)""")
+    conn.commit()
+    conn.close()
+
+def save_chat(channel_id, user_name, role, content):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("INSERT INTO chat_history (channel_id, user_name, role, content) VALUES (?, ?, ?, ?)", 
+              (str(channel_id), user_name, role, content))
+    conn.commit()
+    conn.close()
+
+def get_chat_history(channel_id, limit=10):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT user_name, role, content FROM chat_history WHERE channel_id = ? ORDER BY id DESC LIMIT ?", 
+              (str(channel_id), limit))
+    rows = c.fetchall()
+    conn.close()
+    return rows[::-1] # Balikin urutannya (dari lama ke baru)
+
+init_db()
+
+# === 2. LIVE SEARCH (EXA AI) ===
+
+# === MULTI-SEARCH FALLBACK (EXA -> SERPER -> LANGSEARCH -> SERPAPI) ===
+
+# === MULTI-SEARCH FALLBACK (TAVILY -> EXA -> SERPER -> LANGSEARCH -> SERPAPI) ===
+async def search_internet(query):
+    nl = chr(10)
+    
+    # 1. COBA TAVILY (KEYLESS - TANPA API KEY)
+    try:
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                "Content-Type": "application/json",
+                "X-Tavily-Access-Mode": "keyless"
+            }
+            payload = {"query": query, "max_results": 3}
+            async with session.post("https://api.tavily.com/search", headers=headers, json=payload, timeout=15) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    res = data.get("results", [])
+                    if res:
+                        txt = "🌐 **Hasil Pencarian (Tavily):**" + nl
+                        for i in res:
+                            txt += "- **" + str(i.get("title")) + "**" + nl
+                            txt += "  " + str(i.get("url")) + nl
+                            txt += "  " + str(i.get("content"))[:200] + "..." + nl + nl
+                        return txt
+                elif r.status in [429, 402, 403]:
+                    print("⚠️ [SEARCH] Tavily limit. Pindah ke Exa...")
+    except Exception as e:
+        print(f"⚠️ [SEARCH] Tavily Error: {e}")
+        pass
+
+
+    # 1.5 COBA WEBLESS (KEYLESS - DUCKDUCKGO, MOJEEk, BING)
+    try:
+        results = await webless_search(query, limit=3)
+        if results:
+            txt = "🌐 **Hasil Pencarian (Webless):**" + nl
+            for i in results:
+                title = str(getattr(i, 'title', 'No Title'))
+                url = str(getattr(i, 'url', 'No URL'))
+                snippet = str(getattr(i, 'snippet', ''))
+                txt += "- **" + title + "**" + nl
+                txt += "  " + url + nl
+                if snippet:
+                    txt += "  " + snippet[:150] + "..." + nl
+                txt += nl
+            return txt
+    except Exception as e:
+        print(f"⚠️ [SEARCH] Webless Error: {e}")
+
+    # 2. COBA EXA AI
+    exa_key = os.getenv("EXA_API_KEY")
+    if exa_key:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post("https://api.exa.ai/search", 
+                                        headers={"x-api-key": exa_key, "Content-Type": "application/json"},
+                                        json={"query": query, "numResults": 3}, timeout=10) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        res = data.get("results", [])
+                        if res:
+                            txt = "🌐 **Hasil Pencarian (Exa):**" + nl
+                            for i in res: 
+                                txt += "- **" + str(i.get("title")) + "**" + nl + "  " + str(i.get("url")) + nl + "  " + str(i.get("text"))[:150] + "..." + nl + nl
+                            return txt
+                    elif r.status in [429, 402, 403]:
+                        print("⚠️ [SEARCH] Exa limit. Pindah ke Serper...")
+        except: pass
+
+    # 3. COBA SERPER (GOOGLE)
+    serper_key = os.getenv("SERPER_API_KEY")
+    if serper_key:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post("https://google.serper.dev/search", 
+                                        headers={"X-API-KEY": serper_key, "Content-Type": "application/json"},
+                                        json={"q": query, "num": 3}, timeout=10) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        res = data.get("organic", [])
+                        if res:
+                            txt = "🌐 **Hasil Pencarian (Google/Serper):**" + nl
+                            for i in res: 
+                                txt += "- **" + str(i.get("title")) + "**" + nl + "  " + str(i.get("link")) + nl + "  " + str(i.get("snippet"))[:150] + "..." + nl + nl
+                            return txt
+                    elif r.status in [429, 402, 403]:
+                        print("⚠️ [SEARCH] Serper limit. Pindah ke LangSearch...")
+        except: pass
+
+    # 4. COBA LANGSEARCH
+    lang_key = os.getenv("LANGSEARCH_API_KEY")
+    if lang_key:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post("https://api.langsearch.com/v1/web-search", 
+                                        headers={"Authorization": "Bearer " + str(lang_key), "Content-Type": "application/json"},
+                                        json={"query": query, "count": 3}, timeout=10) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        pages = data.get("data", {}).get("webPages", {}).get("value", [])
+                        if pages:
+                            txt = "🌐 **Hasil Pencarian (LangSearch):**" + nl
+                            for i in pages: 
+                                txt += "- **" + str(i.get("name")) + "**" + nl + "  " + str(i.get("url")) + nl + "  " + str(i.get("snippet"))[:150] + "..." + nl + nl
+                            return txt
+        except: pass
+        
+    # 5. COBA SERPAPI
+    serpapi_key = os.getenv("SERPAPI_KEY")
+    if serpapi_key:
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = "https://serpapi.com/search?api_key=" + str(serpapi_key) + "&q=" + query + "&engine=google"
+                async with session.get(url, timeout=10) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        res = data.get("organic_results", [])
+                        if res:
+                            txt = "🌐 **Hasil Pencarian (SerpApi):**" + nl
+                            for i in res: 
+                                txt += "- **" + str(i.get("title")) + "**" + nl + "  " + str(i.get("link")) + nl + "  " + str(i.get("snippet"))[:150] + "..." + nl + nl
+                            return txt
+        except: pass
+
+    return "❌ Semua API Search (Tavily, Exa, Serper, LangSearch, SerpApi) sedang limit/error."
+
+
+
+# ══════════════════════════════════════════════════════════════
+# 🌐 FREE APIs (KEYLESS - Tanpa Login)
+# ══════════════════════════════════════════════════════════════
+
+async def get_weather(city):
+    """Open-Meteo: Cuaca real-time."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            geo_url = "https://geocoding-api.open-meteo.com/v1/search"
+            async with session.get(geo_url, params={"name": city, "count": 1, "language": "id"}, timeout=10) as r:
+                if r.status != 200: return "❌ Gagal cari lokasi."
+                geo = await r.json()
+                if not geo.get("results"): return f"❌ Kota '{city}' gak ditemukan."
+                loc = geo["results"][0]
+                
+            weather_url = "https://api.open-meteo.com/v1/forecast"
+            params = {
+                "latitude": loc["latitude"], "longitude": loc["longitude"],
+                "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
+                "timezone": "Asia/Jakarta"
+            }
+            async with session.get(weather_url, params=params, timeout=10) as r:
+                if r.status != 200: return "❌ Gagal ambil cuaca."
+                w = await r.json()
+                cur = w["current"]
+                return (
+                    f"🌤️ **Cuaca {loc['name']}, {loc.get('country','')}**" + chr(10) +
+                    f"🌡️ Suhu: {cur['temperature_2m']}°C" + chr(10) +
+                    f"💧 Kelembapan: {cur['relative_humidity_2m']}%" + chr(10) +
+                    f"💨 Angin: {cur['wind_speed_10m']} km/h"
+                )
+    except Exception as e:
+        return f"❌ Error cuaca: {e}"
+
+async def get_dictionary(word):
+    """Free Dictionary API."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
+            async with session.get(url, timeout=10) as r:
+                if r.status != 200: return f"❌ Kata '{word}' gak ditemukan."
+                data = await r.json()
+                entry = data[0]
+                mean = entry["meanings"][0]
+                defn = mean["definitions"][0]["definition"]
+                return (
+                    f"📖 **{entry['word']}** ({mean['partOfSpeech']})" + chr(10) +
+                    f"📝 {defn}"
+                )
+    except Exception as e:
+        return f"❌ Error kamus: {e}"
+
+
+
+_last_gdelt_call = 0.0
+
+async def get_news(query="teknologi"):
+    """FreeNewsAPI (keyless) -> GDELT (keyless, throttled)."""
+    global _last_gdelt_call
+    nl = chr(10)
+    
+    # 1. COBA FREENEWSAPI.AI (KEYLESS, NO QUOTA)
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = "https://freenewsapi.ai/v1/search"
+            params = {"q": query, "size": 5}
+            async with session.get(url, params=params, timeout=15) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    articles = data.get("articles", data if isinstance(data, list) else [])
+                    if articles:
+                        txt = "📰 **Berita Terkini (FreeNewsAPI):**" + nl
+                        for i, art in enumerate(articles, 1):
+                            title = art.get("title", "No Title")
+                            link = art.get("url", art.get("link", ""))
+                            src = art.get("source", art.get("publisher", ""))
+                            txt += f"{i}. [{title}]({link})" + nl
+                            if src:
+                                txt += f"   📍 {src}" + nl
+                        return txt
+                elif r.status in [429, 402, 403]:
+                    print("⚠️ [NEWS] FreeNewsAPI limit. Pindah ke GDELT...")
+    except Exception as e:
+        print(f"⚠️ [NEWS] FreeNewsAPI Error: {e}")
+
+    # 2. FALLBACK KE GDELT (THROTTLE 5 DETIK)
+    import time
+    now = time.time()
+    if now - _last_gdelt_call < 5:
+        return "⏳ Tunggu 5 detik ya Bang, biar GDELT gak ngamuk."
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = "https://api.gdeltproject.org/api/v2/doc/doc"
+            params = {"query": query, "mode": "ArtList", "maxrecords": 5, "format": "json", "sort": "DateDesc"}
+            async with session.get(url, params=params, timeout=20) as r:
+                _last_gdelt_call = time.time()
+                if r.status == 200:
+                    data = await r.json()
+                    articles = data.get("articles", [])
+                    if articles:
+                        txt = "📰 **Berita (GDELT):**" + nl
+                        for i, art in enumerate(articles, 1):
+                            title = art.get("title", "No Title")
+                            link = art.get("url", "")
+                            txt += f"{i}. [{title}]({link})" + nl
+                        return txt
+                elif r.status == 429:
+                    return "⏳ GDELT lagi limit. Coba lagi 5 detik lagi ya Bang."
+    except Exception as e:
+        return f"❌ Error GDELT: {e}"
+
+    return "ℹ️ Gak ada berita yang ketemu."
+
+
+async def get_currency(from_cur, to_cur):
+    """Frankfurter: Kurs mata uang."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api.frankfurter.app/latest?from={from_cur.upper()}&to={to_cur.upper()}"
+            async with session.get(url, timeout=10) as r:
+                if r.status != 200: return f"❌ Kurs {from_cur} ke {to_cur} gagal."
+                data = await r.json()
+                rate = data["rates"].get(to_cur.upper())
+                return (
+                    f"💱 **Kurs {from_cur.upper()} → {to_cur.upper()}**" + chr(10) +
+                    f"1 {from_cur.upper()} = **{rate} {to_cur.upper()}**" + chr(10) +
+                    f"📅 Update: {data['date']}"
+                )
+    except Exception as e:
+        return f"❌ Error kurs: {e}"
+
+async def get_ip_info(ip):
+    """ip-api: Geolokasi IP."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"http://ip-api.com/json/{ip}?fields=status,country,city,isp,query"
+            async with session.get(url, timeout=10) as r:
+                if r.status != 200: return "❌ Gagal ambil IP info."
+                data = await r.json()
+                if data.get("status") != "success": return "❌ IP gak valid."
+                return (
+                    f"🌍 **Info IP: {data['query']}**" + chr(10) +
+                    f"🏳️ Negara: {data['country']}" + chr(10) +
+                    f"🏙️ Kota: {data['city']}" + chr(10) +
+                    f"📡 ISP: {data['isp']}"
+                )
+    except Exception as e:
+        return f"❌ Error IP: {e}"
+# ══════════════════════════════════════════════════════════════
+
+
+
+# ══════════════════════════════════════════════════════════════
+# 📄 WEB READER + SUMMARIZER (Scrape URL & Rangkum)
+# ══════════════════════════════════════════════════════════════
+
+async def scrape_url(url):
+    """Ambil isi website pakai 3 lapis fallback."""
+    nl = chr(10)
+    
+    # LAPIS 1: FIRECRAWL (KEYLESS)
+    try:
+        async with aiohttp.ClientSession() as session:
+            headers = {"Content-Type": "application/json"}
+            payload = {"url": url, "formats": ["markdown"]}
+            async with session.post("https://api.firecrawl.dev/v1/scrape", headers=headers, json=payload, timeout=25) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    md = data.get("data", {}).get("markdown", "")
+                    title = data.get("data", {}).get("metadata", {}).get("title", url)
+                    if md and len(md) > 100:
+                        return {"title": title, "content": md, "url": url, "source": "Firecrawl"}
+                elif r.status in [429, 402, 403]:
+                    print("⚠️ [SCRAPE] Firecrawl limit. Pindah ke Jina...")
+    except Exception as e:
+        print(f"⚠️ [SCRAPE] Firecrawl Error: {e}")
+
+    # LAPIS 2: JINA READER (KEYLESS)
+    try:
+        async with aiohttp.ClientSession() as session:
+            jina_url = "https://r.jina.ai/" + url
+            headers = {"User-Agent": "Mozilla/5.0"}
+            # Kalo punya API key Jina, boleh dipake
+            jina_key = os.getenv("JINA_API_KEY")
+            if jina_key:
+                headers["Authorization"] = "Bearer " + jina_key
+            async with session.get(jina_url, headers=headers, timeout=25) as r:
+                if r.status == 200:
+                    text = await r.text()
+                    if text and len(text) > 100:
+                        # Ambil judul dari baris awal markdown
+                        title = url
+                        for line in text.split(nl)[:5]:
+                            if line.startswith("Title:"):
+                                title = line.replace("Title:", "").strip()
+                                break
+                        return {"title": title, "content": text, "url": url, "source": "Jina Reader"}
+                elif r.status in [429, 402, 403]:
+                    print("⚠️ [SCRAPE] Jina limit. Pindah ke BS4...")
+    except Exception as e:
+        print(f"⚠️ [SCRAPE] Jina Error: {e}")
+
+    # LAPIS 3: BEAUTIFULSOUP (PARSING MANUAL)
+    try:
+        from bs4 import BeautifulSoup
+        async with aiohttp.ClientSession() as session:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            async with session.get(url, headers=headers, timeout=20) as r:
+                if r.status == 200:
+                    html = await r.text()
+                    soup = BeautifulSoup(html, "html.parser")
+                    # Buang script, style, nav, footer
+                    for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                        tag.decompose()
+                    title = soup.title.string.strip() if soup.title else url
+                    # Ambil teks dari body
+                    paragraphs = soup.find_all(["p", "h1", "h2", "h3", "li"])
+                    content = nl.join(p.get_text().strip() for p in paragraphs if p.get_text().strip())
+                    if content and len(content) > 100:
+                        return {"title": title, "content": content[:8000], "url": url, "source": "BeautifulSoup"}
+    except Exception as e:
+        print(f"⚠️ [SCRAPE] BS4 Error: {e}")
+
+    return None
+
+async def summarize_url(url, channel_id=None):
+    """Scrape URL lalu rangkum pakai AI."""
+    data = await scrape_url(url)
+    if not data:
+        return "❌ Gagal buka website. Mungkin diproteksi Cloudflare atau butuh login."
+
+    # Potong content biar gak over token (max 6000 karakter)
+    content = data["content"][:6000]
+
+    system = "Kamu adalah perangkum web profesional. Rangkum isi web dalam bahasa Indonesia, poin-poin penting, dan sertakan insight. Jangan ngarang di luar isi web."
+    prompt = "URL: " + data["url"] + chr(10) + "Judul: " + data["title"] + chr(10) + chr(10) + "Isi Web:" + chr(10) + content
+
+    summary = await execute_task("architect", prompt, system, channel_id=channel_id)
+
+    result = (
+        "📄 **Rangkuman Web**" + chr(10) +
+        "━━━━━━━━━━━━━━━━━━━━" + chr(10) +
+        "🌐 **Judul:** " + data["title"] + chr(10) +
+        "🔗 **URL:** " + data["url"] + chr(10) +
+        "📡 **Sumber Scrape:** " + data["source"] + chr(10) +
+        "━━━━━━━━━━━━━━━━━━━━" + chr(10) + chr(10) +
+        summary
+    )
+    return result
+# ══════════════════════════════════════════════════════════════
+
+
+
+# ══════════════════════════════════════════════════════════════
+# 🔍 DEEP RESEARCH (Search -> Scrape -> Summarize)
+# ══════════════════════════════════════════════════════════════
+
+async def search_multi(query, limit=10):
+    """Search multi-source, dedup URL."""
+    all_results = []
+    seen_urls = set()
+
+    # 1. DDG HTML scrape (paling relevan)
+    try:
+        from bs4 import BeautifulSoup
+        import urllib.parse
+        async with aiohttp.ClientSession() as session:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            async with session.get("https://html.duckduckgo.com/html/", params={"q": query}, headers=headers, timeout=15) as r:
+                if r.status == 200:
+                    html = await r.text()
+                    soup = BeautifulSoup(html, "html.parser")
+                    for a in soup.select("a.result__a"):
+                        href = a.get("href", "")
+                        if "uddg=" in href:
+                            try:
+                                href = urllib.parse.unquote(href.split("uddg=")[1].split("&")[0])
+                            except: pass
+                        if href and href not in seen_urls:
+                            seen_urls.add(href)
+                            title = a.get_text().strip()
+                            snippet = ""
+                            parent = a.find_parent("div", class_="result")
+                            if parent:
+                                sn = parent.find("a", class_="result__snippet")
+                                if sn: snippet = sn.get_text().strip()[:200]
+                            all_results.append({"url": href, "title": title, "snippet": snippet, "source": "DDG"})
+                            if len(all_results) >= limit: break
+                else:
+                    print(f"⚠️ [SEARCH] DDG HTML HTTP {r.status}")
+    except Exception as e:
+        print(f"⚠️ [SEARCH] DDG HTML: {e}")
+
+    # 2. Webless
+    if len(all_results) < limit:
+        try:
+            wl = await webless_search(query, limit=limit - len(all_results))
+            for i in wl:
+                url = str(getattr(i, 'url', ''))
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    all_results.append({"url": url, "title": str(getattr(i, 'title', '')), "snippet": str(getattr(i, 'snippet', ''))[:200], "source": "Webless"})
+                    if len(all_results) >= limit: break
+        except Exception as e:
+            print(f"⚠️ [SEARCH] Webless: {e}")
+
+    # 3. Tavily (last resort)
+    if len(all_results) < 3:
+        try:
+            async with aiohttp.ClientSession() as session:
+                headers = {"Content-Type": "application/json", "X-Tavily-Access-Mode": "keyless"}
+                payload = {"query": query, "max_results": limit - len(all_results)}
+                async with session.post("https://api.tavily.com/search", headers=headers, json=payload, timeout=15) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        for i in data.get("results", []):
+                            url = i.get("url")
+                            if url and url not in seen_urls:
+                                seen_urls.add(url)
+                                all_results.append({"url": url, "title": i.get("title", ""), "snippet": str(i.get("content", ""))[:200], "source": "Tavily"})
+        except Exception as e:
+            print(f"⚠️ [SEARCH] Tavily: {e}")
+
+    return all_results
+
+# Alias buat backward compat
+async def search_raw(query, limit=3):
+    return await search_multi(query, limit=limit)
+
+async def research_web(query, channel_id=None, max_urls=5):
+    """Deep Research Multi-Source: cari, scrape max 5 web paralel, rangkum semua."""
+    nl = chr(10)
+
+    print(f"🔍 [RESEARCH] Searching: {query}")
+    results = await search_multi(query, limit=max_urls)
+
+    if not results:
+        return "❌ Gak nemu hasil pencarian buat: " + query
+
+    urls_to_scrape = results[:max_urls]
+    print(f"📄 [RESEARCH] Scraping {len(urls_to_scrape)} URL paralel...")
+
+    sem = asyncio.Semaphore(3)
+    async def _scrape(u):
+        async with sem:
+            return await scrape_url(u)
+
+    tasks = [_scrape(r["url"]) for r in urls_to_scrape]
+    scraped = await asyncio.gather(*tasks, return_exceptions=True)
+
+    ok = []
+    for s in scraped:
+        if s and not isinstance(s, Exception):
+            ok.append(s)
+
+    if not ok:
+        snippets = nl.join(f"- {r['title']}: {r['snippet']}" for r in results)
+        return "⚠️ Gagal buka semua web. Rangkuman dari snippet:" + nl + nl + snippets
+
+    # Gabung konten (max 2000 char/sumber biar gak overload)
+    combined = ""
+    sources_list = ""
+    for i, s in enumerate(ok, 1):
+        content = s["content"][:2000]
+        combined += nl + f"=== SUMBER {i}: {s['title']} ===" + nl
+        combined += f"URL: {s['url']}" + nl
+        combined += content + nl
+        sources_list += f"{i}. [{s['title']}]({s['url']}) *(via {s['source']})*" + nl
+
+    system = (
+        "Kamu adalah peneliti profesional. Jawab pertanyaan user berdasarkan SEMUA sumber web yang diberikan. "
+        "Sintesis informasi dari berbagai sumber. Sebutkan fakta, angka, dan detail penting. "
+        "Bahasa Indonesia, poin-poin jelas. Jangan ngarang di luar isi web. "
+        "Kalau sumber tidak relevan dengan pertanyaan, bilang dengan jujur."
+    )
+    prompt = f"Pertanyaan user: {query}{nl}{nl}Sumber-sumber web:{combined}"
+
+    summary = await execute_task("architect", prompt, system, channel_id=channel_id)
+
+    result = (
+        "🔍 **Deep Research Multi-Source: " + query + "**" + nl +
+        "━━━━━━━━━━━━━━━━━━━━" + nl +
+        f"📚 **{len(ok)} Sumber Dibuka:**" + nl + sources_list +
+        "━━━━━━━━━━━━━━━━━━━━" + nl + nl +
+        summary
+    )
+    return result
+
+# === 3. MAP PROVIDER & TASKS ===
+PROVIDERS = {
+    "chatanywhere": {"url": "https://api.chatanywhere.tech/v1/chat/completions", "key": os.getenv("CHATANYWHERE_API_KEY"), "type": "openai"},
+    "cloudflare": {"url": "https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/", "key": os.getenv("CF_API_TOKEN"), "acc": os.getenv("CF_ACCOUNT_ID"), "type": "cloudflare"},
+    "gemini": {"url": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}", "key": os.getenv("GEMINI_API_KEY"), "type": "gemini"},
+    "mistral": {"url": "https://api.mistral.ai/v1/chat/completions", "key": os.getenv("MISTRAL_API_KEY"), "type": "openai"},
+    "onomeo": {"url": "https://onomeo.com/v1/chat/completions", "key": os.getenv("ONOMEO_API_KEY"), "type": "openai"},
+    "openrouter": {"url": "https://openrouter.ai/api/v1/chat/completions", "key": os.getenv("OPENROUTER_API_KEY"), "type": "openai"},
+    "groq": {"url": "https://api.groq.com/openai/v1/chat/completions", "key": os.getenv("GROQ_API_KEY"), "type": "openai"},
+    "cohere": {"url": "https://api.cohere.com/v2/chat", "key": os.getenv("COHERE_API_KEY"), "type": "cohere"},
+    "pollinations": {"url": "https://text.pollinations.ai/openai", "key": None, "type": "openai"},
+    "llm7": {"url": "https://api.llm7.io/v1/chat/completions", "key": os.getenv("LLM7_TOKENS"), "type": "openai"}
+}
+
+TASKS = {
+    "vision": [("cohere", "command-a-vision-07-2025"), ("openrouter", "nvidia/nemotron-3.5-super-vl:free"), ("chatanywhere", "gpt-4o")],
+    "architect": [("cohere", "command-a-reasoning-08-2025"), ("groq", "qwen/qwen3.8-27b"), ("mistral", "mistral-code-latest"), ("cloudflare", "@cf/qwen/qwq-32b")],
+    "fast_chat": [("groq", "qwen/qwen3.8-27b"), ("groq", "allam-2-7b"), ("pollinations", "openai-fast"), ("cloudflare", "@cf/meta/llama-3.2-3b-instruct"), ("cohere", "command-a-reasoning-08-2025")],
+    "roleplay": [("groq", "qwen/qwen3.8-27b"), ("mistral", "ministral-14b-latest"), ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast")],
+    "emergency": [("chatanywhere", "gpt-6.1-sol"), ("chatanywhere", "gpt-4o"), ("gemini", "gemini-3.6-flash"), ("mistral", "codestral-latest")]
+}
+
+COOLDOWNS = {}
+COOLDOWN_DURATION = 300
+
+# === 4. CORE API CALLER ===
+async def _call_api(session, provider_name, model, messages, image_b64=None):
+    cfg = PROVIDERS.get(provider_name)
+    if not cfg: return None, "SKIP"
+
+    headers = {"Content-Type": "application/json"}
+    if cfg["key"]: headers["Authorization"] = f"Bearer {cfg['key']}"
+
+    if image_b64:
+        content = [{"type": "text", "text": messages[-1]["content"]}]
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}})
+        messages[-1]["content"] = content
+
+    if cfg["type"] == "gemini":
+        url = cfg["url"].format(model=model, key=cfg["key"])
+        payload = {"contents": [{"parts": [{"text": m["content"] if isinstance(m["content"], str) else m["content"][0]["text"]}]} for m in messages]}
+        if image_b64: payload["contents"][-1]["parts"].append({"inline_data": {"mime_type": "image/jpeg", "data": image_b64}})
+    elif cfg["type"] == "cloudflare":
+        url = f"{cfg['url'].format(acc=cfg['acc'])}{model}"
+        payload = {"messages": messages}
+    elif cfg["type"] == "cohere":
+        url = cfg["url"]
+        payload = {"model": model, "messages": messages}
+    else:
+        url = cfg["url"]
+        payload = {"model": model, "messages": messages, "max_tokens": 1500}
+
+    try:
+        async with session.post(url, headers=headers, json=payload, timeout=10) as r:
+            if r.status == 200:
+                data = await r.json()
+                if cfg["type"] == "gemini": return data['candidates'][0]['content']['parts'][0]['text'], "OK"
+                elif cfg["type"] == "cloudflare": return data['result']['response'], "OK"
+                else: return data['choices'][0]['message']['content'], "OK"
+            elif r.status in [429, 402, 403]: return None, "LIMIT"
+            else: return None, "ERROR"
+    except Exception: return None, "ERROR"
+
+# === 5. EXECUTE TASK (DENGAN MEMORY) ===
+async def execute_task(task_type, prompt, system_prompt="Kamu adalah asisten AI yang cerdas.", image_bytes=None, channel_id=None):
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    # Tarik ingatan dari database kalau ada channel_id
+    if channel_id:
+        history = get_chat_history(channel_id, 6)
+        for user, role, content in history:
+            messages.append({"role": role, "content": content})
+            
+    messages.append({"role": "user", "content": prompt})
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8') if image_bytes else None
+    
+    models_to_try = TASKS.get(task_type, []) + TASKS["emergency"]
+    
+    async with aiohttp.ClientSession() as session:
+        for provider, model in models_to_try:
+            model_key = (provider, model)
+            if model_key in COOLDOWNS and time.time() < COOLDOWNS[model_key]:
+                continue
+                
+            print(f"🚀 [ROUTER] Mencoba {provider} -> {model}...")
+            res, status = await _call_api(session, provider, model, messages, image_b64)
+            
+            if status == "OK" and res:
+                if channel_id:
+                    save_chat(channel_id, "User", "user", prompt)
+                    save_chat(channel_id, "Bot", "assistant", res)
+                return res
+            elif status == "LIMIT":
+                COOLDOWNS[model_key] = time.time() + COOLDOWN_DURATION
+                print(f"⚠️ [LIMIT] {provider} -> {model} penjara {COOLDOWN_DURATION}s!")
+                
+    return "❌ Maaf Bang, semua model AI sedang sibuk."
+
+# === 6. MULTI-STEP AGENT ===
+async def agent_action(guild, user_prompt, channel_id=None):
+    """Minta AI ngerencanain aksi dalam bentuk JSON List"""
+    system = """Kamu adalah Agen Server Discord. Jika user meminta perubahan server, 
+    balas HANYA dengan JSON array berisi aksi. Contoh:
+    [{"action": "create_category", "name": "Toko"}, {"action": "create_channel", "name": "info", "category": "Toko"}]
+    Aksi yang tersedia: create_category, create_channel, create_role.
+    Jika tidak ada aksi server, balas dengan "CHAT: [jawaban biasa]".
+    """
+    res = await execute_task("architect", user_prompt, system, channel_id=channel_id)
+    
+    if not res or not res.strip().startswith("["): return None
+    
+    try:
+        actions = json.loads(res)
+        for act in actions:
+            if act["action"] == "create_category":
+                await guild.create_category(act["name"])
+            elif act["action"] == "create_channel":
+                cat = discord.utils.get(guild.categories, name=act.get("category"))
+                await guild.create_text_channel(act["name"], category=cat)
+            elif act["action"] == "create_role":
+                await guild.create_role(name=act["name"])
+        return f"✅ Berhasil mengeksekusi {len(actions)} aksi sekaligus!"
+    except Exception as e:
+        return f"❌ Gagal eksekusi agen: {e}"

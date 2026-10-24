@@ -1,0 +1,158 @@
+import discord
+from discord.ext import commands
+import os
+import json
+from dotenv import load_dotenv
+from ai_engine import execute_task, agent_action, search_internet, get_weather, get_dictionary, get_news, get_currency, get_ip_info
+from keep_alive import keep_alive
+
+load_dotenv()
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot {bot.user} udah online!")
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="🤖 127 AI | Memory + Search"))
+
+@bot.event
+async def on_message(message):
+    if message.author.bot: return
+
+
+    # --- FITUR MENTION (SEARCH + AGENT + CHAT + MEMORY) ---
+    if bot.user.mentioned_in(message) and not message.mention_everyone:
+        prompt = message.content.replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '').strip()
+        
+        if prompt:
+            # 0. CEK FREE APIs DULU (Cuaca, Kamus, Berita, Kurs, IP)
+            p_low = prompt.lower()
+            
+            # Cuaca
+            if any(k in p_low for k in ["cuaca", "weather", "suhu"]):
+                import re as _re
+                city_match = _re.search(r"(?:di|kota|cuaca)\s+([a-zA-Z\s]+)", p_low)
+                city = city_match.group(1).strip() if city_match else "Jakarta"
+                city = city.replace("cuaca", "").replace("weather", "").strip()
+                res = await get_weather(city)
+                await message.reply(res[:2000])
+                return
+            
+            # Kamus
+            if any(k in p_low for k in ["arti", "definisi", "kamus", "artinya"]):
+                import re as _re
+                word_match = _re.search(r"(?:arti|definisi|kamus|artinya)\s+(?:kata\s+)?([a-zA-Z]+)", p_low)
+                if word_match:
+                    res = await get_dictionary(word_match.group(1))
+                    await message.reply(res[:2000])
+                    return
+            
+            # Berita
+            if any(k in p_low for k in ["berita", "news", "kabar terbaru"]):
+                res = await get_news()
+                await message.reply(res[:2000])
+                return
+            
+            # Kurs Mata Uang
+            if any(k in p_low for k in ["kurs", "nilai tukar", "currency"]):
+                import re as _re
+                pair = _re.search(r"([a-zA-Z]{3})\s+(?:ke|to)\s+([a-zA-Z]{3})", prompt)
+                if pair:
+                    res = await get_currency(pair.group(1), pair.group(2))
+                    await message.reply(res[:2000])
+                    return
+            
+            # IP Info
+            if "ip" in p_low:
+                import re as _re
+                ip_match = _re.search(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})", prompt)
+                if ip_match:
+                    res = await get_ip_info(ip_match.group(1))
+                    await message.reply(res[:2000])
+                    return
+            
+            # 1. Cek apakah user minta cari di internet
+            search_kws = ["cari", "cariin", "carikan", "search", "googling", "browsing", "buka web"]
+            prompt_lower = prompt.lower()
+            
+            if any(kw in prompt_lower for kw in search_kws):
+                # Bersihin kata kunci buat dapet query aslinya
+                query = prompt
+                for kw in search_kws:
+                    query = query.replace(kw, "")
+                query = query.strip()
+                
+                if query:
+                    async with message.channel.typing():
+                        msg = await message.reply(f"🌐 **Mencari di internet: {query}...**")
+                        res = await search_internet(query)
+                        await msg.edit(content=res[:2000])
+                    return # Selesai, gak usah lanjut ke chat
+
+            # 2. Kalau bukan search, cek apakah perintah aksi server (Agent)
+            async with message.channel.typing():
+                action_res = await agent_action(message.guild, prompt, message.channel.id)
+                
+                if action_res:
+                    await message.reply(action_res)
+                else:
+                    # 3. Kalau bukan aksi, jadiin chat biasa (pakai memory)
+                    response = await execute_task("roleplay", prompt, channel_id=message.channel.id)
+                    await message.reply(response[:2000])
+
+    # --- FITUR VISION-TO-SERVER ---
+    elif message.attachments and "buatkan server" in message.content.lower():
+        await message.reply("🧠 **AI Vision sedang membaca screenshot...**")
+        attachment = message.attachments[0]
+        if not attachment.content_type.startswith("image/"):
+            return await message.reply("❌ File harus gambar.")
+        image_bytes = await attachment.read()
+        
+        prompt = """
+        Analyze this Discord server screenshot. Extract all categories, channels, and roles.
+        Output ONLY JSON: {"categories": [{"name": "CATEGORY", "channels": [{"name": "channel-name", "type": "text"}]}], "roles": ["Role1"]}
+        """
+        result = await execute_task("vision", prompt, "You are a strict JSON generator.", image_bytes, channel_id=message.channel.id)
+        
+        try:
+            clean_json = result.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
+            
+            embed = discord.Embed(title="🏗️ Rencana Pembangunan Server", color=discord.Color.gold())
+            cat_list = ""
+            for cat in data.get("categories", []):
+                ch_names = ", ".join([f"#{c['name']}" for c in cat.get("channels", [])])
+                cat_list += f"**{cat['name']}**: {ch_names}\n"
+            
+            embed.add_field(name="Kategori & Channel", value=cat_list[:1000] or "Tidak ada", inline=False)
+            embed.add_field(name="Role", value=", ".join(data.get("roles", [])) or "Tidak ada", inline=False)
+            embed.set_footer(text="Ketik 'YA' untuk membangun.")
+            await message.reply(embed=embed)
+            
+            bot.temp_server_data = getattr(bot, 'temp_server_data', {})
+            bot.temp_server_data[message.author.id] = data
+        except Exception as e:
+            await message.reply(f"❌ Gagal parse JSON: {e}\nRespons: {result[:300]}")
+
+    elif message.content.lower() == "ya" and getattr(bot, 'temp_server_data', {}).get(message.author.id):
+        data = bot.temp_server_data.pop(message.author.id)
+        await message.reply("⏳ **Mulai membangun server...**")
+        for role_name in data.get("roles", []):
+            if not discord.utils.get(message.guild.roles, name=role_name):
+                await message.guild.create_role(name=role_name)
+        for cat in data.get("categories", []):
+            category = await message.guild.create_category(cat['name'])
+            for ch in cat.get('channels', []):
+                if ch.get('type') == 'voice': await message.guild.create_voice_channel(ch['name'], category=category)
+                else: await message.guild.create_text_channel(ch['name'], category=category)
+        await message.reply("✅ **Server berhasil dibangun!**")
+
+    await bot.process_commands(message)
+
+keep_alive()
+TOKEN = os.getenv("DISCORD_TOKEN")
+if TOKEN: bot.run(TOKEN)

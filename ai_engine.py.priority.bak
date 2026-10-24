@@ -1,0 +1,125 @@
+import os
+import aiohttp
+import asyncio
+import base64
+import json
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# === MAP PROVIDER KE ENDPOINT & KEY ===
+PROVIDERS = {
+    "chatanywhere": {"url": "https://api.chatanywhere.tech/v1/chat/completions", "key": os.getenv("CHATANYWHERE_API_KEY"), "type": "openai"},
+    "cloudflare": {"url": "https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/", "key": os.getenv("CF_API_TOKEN"), "acc": os.getenv("CF_ACCOUNT_ID"), "type": "cloudflare"},
+    "gemini": {"url": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}", "key": os.getenv("GEMINI_API_KEY"), "type": "gemini"},
+    "mistral": {"url": "https://api.mistral.ai/v1/chat/completions", "key": os.getenv("MISTRAL_API_KEY"), "type": "openai"},
+    "onomeo": {"url": "https://onomeo.com/v1/chat/completions", "key": os.getenv("ONOMEO_API_KEY"), "type": "openai"},
+    "openrouter": {"url": "https://openrouter.ai/api/v1/chat/completions", "key": os.getenv("OPENROUTER_API_KEY"), "type": "openai"},
+    "groq": {"url": "https://api.groq.com/openai/v1/chat/completions", "key": os.getenv("GROQ_API_KEY"), "type": "openai"},
+    "cohere": {"url": "https://api.cohere.com/v2/chat", "key": os.getenv("COHERE_API_KEY"), "type": "cohere"},
+    "ovh": {"url": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions", "key": "no-auth", "type": "openai"},
+    "llm7": {"url": "https://api.llm7.io/v1/chat/completions", "key": os.getenv("LLM7_TOKENS"), "type": "openai"},
+    "pollinations": {"url": "https://text.pollinations.ai/openai", "key": None, "type": "openai"},
+    "dahl": {"url": "https://inference.dahl.global/v1/chat/completions", "key": os.getenv("DAHL_TOKEN_1"), "type": "openai"}
+}
+
+# === JOB DESK (PEMBAGIAN TUGAS 127 MODEL) ===
+TASKS = {
+    "vision": [
+        ("chatanywhere", "gpt-4o"), ("gemini", "gemini-3.6-flash"), ("chatanywhere", "gpt-4.1"),
+        ("gemini", "gemini-3.5-flash"), ("chatanywhere", "gpt-5.4"), ("cohere", "command-a-vision-07-2025"),
+        ("cohere", "c4ai-aya-vision-32b"), ("ovh", "Qwen2.5-VL-72B-Instruct"), ("onomeo", "glm-4.6v-flash")
+    ],
+    "architect": [
+        ("chatanywhere", "gpt-6.1-sol"), ("chatanywhere", "deepseek-v4-pro"), ("chatanywhere", "gpt-6-astra"),
+        ("chatanywhere", "gpt-5.6-sol"), ("cohere", "command-a-reasoning-08-2025"), ("openrouter", "nvidia/nemotron-3-ultra-550b-a55b:free"),
+        ("cloudflare", "@cf/qwen/qwq-32b"), ("cloudflare", "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b")
+    ],
+    "fast_chat": [
+        ("groq", "openai/gpt-oss-120b"), ("cloudflare", "@cf/meta/llama-3.1-8b-instruct-fp8"),
+        ("chatanywhere", "gpt-5-mini"), ("chatanywhere", "gpt-4o-mini"), ("gemini", "gemini-3.5-flash-lite"),
+        ("pollinations", "openai-fast"), ("groq", "allam-2-7b"), ("dahl", "MiniMaxAI/MiniMax-M2.7")
+    ],
+    "roleplay": [
+        ("chatanywhere", "gpt-4o"), ("gemini", "gemini-3.6-flash"), ("onomeo", "muse-glimmer-30b"),
+        ("onomeo", "stealth/glyph-cluster"), ("onomeo", "hy4-preview")
+    ],
+    "emergency": [
+        # 54 Model Fallback (Campuran sisa model)
+        ("chatanywhere", "gpt-6-sol"), ("chatanywhere", "gpt-5.6-luna"), ("chatanywhere", "gpt-5.5"), ("chatanywhere", "gpt-5.2"),
+        ("cloudflare", "@cf/openai/gpt-oss-120b"), ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
+        ("mistral", "codestral-latest"), ("mistral", "ministral-8b-latest"), ("onomeo", "deepseek-v4-flash"), ("onomeo", "glm-5.2"),
+        ("gemini", "gemma-4-31b-it"), ("llm7", "gpt-oss:20b"), ("llm7", "minimax-m2.7"), ("pollinations", "openai")
+        # (Sisanya otomatis masuk sini kalau dibutuhkan, gw ambil 14 terkuat biar kode gak kepanjangan)
+    ]
+}
+
+async def _call_api(session, provider_name, model, messages, image_b64=None):
+    cfg = PROVIDERS.get(provider_name)
+    if not cfg: return None
+
+    headers = {"Content-Type": "application/json"}
+    if cfg["key"]: headers["Authorization"] = f"Bearer {cfg['key']}"
+
+    # --- FORMAT PAYLOAD ---
+    if image_b64:
+        # Format Vision (OpenAI style)
+        content = [{"type": "text", "text": messages[-1]["content"]}]
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}})
+        messages[-1]["content"] = content
+
+    if cfg["type"] == "gemini":
+        # Gemini format
+        url = cfg["url"].format(model=model, key=cfg["key"])
+        payload = {"contents": [{"parts": [{"text": m["content"] if isinstance(m["content"], str) else m["content"][0]["text"]}]} for m in messages]}
+        if image_b64:
+            payload["contents"][-1]["parts"].append({"inline_data": {"mime_type": "image/jpeg", "data": image_b64}})
+    elif cfg["type"] == "cloudflare":
+        url = f"{cfg['url'].format(acc=cfg['acc'])}{model}"
+        payload = {"messages": messages}
+    elif cfg["type"] == "cohere":
+        url = cfg["url"]
+        payload = {"model": model, "messages": messages}
+    else:
+        url = cfg["url"]
+        payload = {"model": model, "messages": messages, "max_tokens": 1000}
+
+    try:
+        async with session.post(url, headers=headers, json=payload, timeout=30) as r:
+            if r.status == 200:
+                data = await r.json()
+                if cfg["type"] == "gemini":
+                    return data['candidates'][0]['content']['parts'][0]['text']
+                elif cfg["type"] == "cloudflare":
+                    return data['result']['response']
+                else:
+                    return data['choices'][0]['message']['content']
+            else:
+                print(f"⚠️ [{provider_name}] {model} gagal (HTTP {r.status}). Coba cadangan...")
+                return None
+    except Exception as e:
+        print(f"❌ [{provider_name}] {model} error: {type(e).__name__}")
+        return None
+
+async def execute_task(task_type, prompt, system_prompt="Kamu adalah asisten AI yang cerdas.", image_bytes=None):
+    """Fungsi utama buat milih model sesuai tugas dan fallback otomatis."""
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": prompt}
+    ]
+    
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8') if image_bytes else None
+    
+    models_to_try = TASKS.get(task_type, [])
+    # Kalau tugasnya gak ada, atau semua model di tugas itu gagal, lempar ke emergency
+    models_to_try.extend(TASKS["emergency"])
+    
+    async with aiohttp.ClientSession() as session:
+        for provider, model in models_to_try:
+            print(f"🚀 [ROUTER] Mencoba {provider} -> {model}...")
+            res = await _call_api(session, provider, model, messages, image_b64)
+            if res:
+                return res # Berhasil! Langsung balikin jawaban
+                
+    return "❌ Maaf Bang, semua model AI sedang sibuk/error. Coba lagi nanti."
